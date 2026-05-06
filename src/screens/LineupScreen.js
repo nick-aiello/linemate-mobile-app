@@ -1,6 +1,34 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { View, Text, Image, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl, Modal, FlatList, TextInput, Alert, ActionSheetIOS, Platform } from 'react-native';
+import { View, Text, Image, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl, Modal, FlatList, TextInput, Alert, ActionSheetIOS, Platform, Share, Linking } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { BASE_URL, api } from '../api/client';
+
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function buildShareText(lineup, teamName, config) {
+  const fwdCount = config?.fwdLines || 3;
+  const defCount = config?.defLines || 2;
+  const lines = [];
+  const opp = lineup.opponent ? `vs ${lineup.opponent}` : '';
+  if (teamName || opp) lines.push([teamName, opp].filter(Boolean).join(' '));
+  if (lineup.date) {
+    const d = new Date(lineup.date + 'T12:00:00');
+    lines.push(`${MONTHS[d.getMonth()]} ${d.getDate()}${lineup.time ? ' · ' + lineup.time : ''}`);
+  }
+  lines.push('');
+  const positions = { lw: 'LW', c: 'C', rw: 'RW', ld: 'LD', rd: 'RD', g: 'G' };
+  for (let i = 1; i <= fwdCount; i++) {
+    const row = ['lw','c','rw'].map(p => (lineup[p]?.[i] || '—').padEnd(16)).join('  ');
+    lines.push(`Line ${i}:  ${row}`);
+  }
+  lines.push('');
+  for (let i = 1; i <= defCount; i++) {
+    const row = ['ld','rd'].map(p => (lineup[p]?.[i] || '—').padEnd(16)).join('  ');
+    lines.push(`Pair ${i}:  ${row}`);
+  }
+  if (lineup.g?.[1]) { lines.push(''); lines.push(`Goalie:  ${lineup.g[1]}`); }
+  return lines.join('\n');
+}
 
 const SECTION_LABELS = {
   lw: 'Left Wing', c: 'Center', rw: 'Right Wing',
@@ -143,6 +171,24 @@ export default function LineupScreen({ route, navigation }) {
 
   useEffect(() => { load(); }, [load]);
 
+  async function handleShare() {
+    const teamName = route.params.teamName || teamId;
+    const shareText = buildShareText(lineup, teamName, config);
+    const url = `${BASE_URL}/${teamId}/`;
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { options: ['Share Text', 'Share Link', 'Open in Browser', 'Cancel'], cancelButtonIndex: 3 },
+        async (idx) => {
+          if (idx === 0) await Share.share({ message: shareText });
+          else if (idx === 1) await Share.share({ message: url });
+          else if (idx === 2) Linking.openURL(url);
+        }
+      );
+    } else {
+      await Share.share({ message: shareText + '\n\n' + url });
+    }
+  }
+
   useEffect(() => {
     navigation.setOptions({
       headerRight: () => (
@@ -153,10 +199,13 @@ export default function LineupScreen({ route, navigation }) {
               <Text style={{ color: '#fff', fontSize: 13, textTransform: 'uppercase', letterSpacing: 1 }}>Fill</Text>
             </TouchableOpacity>
           ) : null}
+          <TouchableOpacity onPress={handleShare}>
+            <Ionicons name="share-outline" size={22} color="#fff" />
+          </TouchableOpacity>
         </View>
       ),
     });
-  }, [saving, config]);
+  }, [saving, config, lineup]);
 
   function updateLineup(updates) {
     const next = { ...lineupRef.current, ...updates };

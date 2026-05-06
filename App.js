@@ -10,7 +10,6 @@ import LoginScreen from './src/screens/LoginScreen';
 import SignupScreen from './src/screens/SignupScreen';
 import TeamPickerScreen from './src/screens/TeamPickerScreen';
 import LineupScreen from './src/screens/LineupScreen';
-import ShareScreen from './src/screens/ShareScreen';
 import TeamHubScreen from './src/screens/TeamHubScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
 import ChatScreen from './src/screens/ChatScreen';
@@ -28,7 +27,6 @@ const AccountStack = createNativeStackNavigator();
 
 const TAB_ICONS = {
   Lineup: 'list',
-  Share: 'share-social',
   Team: 'people',
   Chat: 'chatbubbles',
   Account: 'person',
@@ -123,11 +121,6 @@ function TeamTabs({ route }) {
       <Tab.Screen
         name="Lineup"
         component={LineupScreen}
-        initialParams={{ teamId, primaryColor, teamName }}
-      />
-      <Tab.Screen
-        name="Share"
-        component={ShareScreen}
         initialParams={{ teamId, primaryColor, teamName }}
       />
       <Tab.Screen
