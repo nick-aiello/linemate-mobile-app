@@ -22,8 +22,6 @@ import AdminScreen from './src/screens/AdminScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
-const TeamStack = createNativeStackNavigator();
-const AccountStack = createNativeStackNavigator();
 
 const TAB_ICONS = {
   Lineup: 'list',
@@ -41,28 +39,6 @@ function headerOpts(primaryColor) {
   };
 }
 
-function TeamHubNavigator({ route }) {
-  const { teamId, teamName, primaryColor = '#c0392b' } = route.params;
-  return (
-    <TeamStack.Navigator screenOptions={headerOpts(primaryColor)}>
-      <TeamStack.Screen name="TeamHub" component={TeamHubScreen} initialParams={{ teamId, teamName, primaryColor }} options={{ headerTitle: 'Team' }} />
-      <TeamStack.Screen name="TeamHistory" component={HistoryScreen} initialParams={{ teamId, primaryColor }} options={{ headerTitle: 'History' }} />
-      <TeamStack.Screen name="TeamRoster" component={RosterScreen} initialParams={{ teamId, primaryColor }} options={{ headerTitle: 'Roster' }} />
-      <TeamStack.Screen name="TeamSchedule" component={ScheduleScreen} initialParams={{ teamId, primaryColor, teamName }} options={{ headerTitle: 'Schedule' }} />
-      <TeamStack.Screen name="TeamStats" component={StatsScreen} initialParams={{ teamId, primaryColor }} options={{ headerTitle: 'Stats' }} />
-    </TeamStack.Navigator>
-  );
-}
-
-function AccountNavigator({ route }) {
-  const { teamId, primaryColor = '#c0392b' } = route.params;
-  return (
-    <AccountStack.Navigator screenOptions={headerOpts(primaryColor)}>
-      <AccountStack.Screen name="AccountSettings" component={SettingsScreen} initialParams={{ teamId, primaryColor }} options={{ headerTitle: 'Account' }} />
-      <AccountStack.Screen name="PlayerProfile" component={ProfileScreen} initialParams={{ teamId, primaryColor }} options={{ headerTitle: 'Profile' }} />
-    </AccountStack.Navigator>
-  );
-}
 
 function TeamTabs({ route }) {
   const { teamId, teamName, primaryColor = '#c0392b' } = route.params;
@@ -84,23 +60,9 @@ function TeamTabs({ route }) {
         component={LineupScreen}
         initialParams={{ teamId, primaryColor, teamName }}
       />
-      <Tab.Screen
-        name="Team"
-        component={TeamHubNavigator}
-        initialParams={{ teamId, primaryColor, teamName }}
-        options={{ headerShown: false }}
-      />
-      <Tab.Screen
-        name="Chat"
-        component={ChatScreen}
-        initialParams={{ teamId, primaryColor }}
-      />
-      <Tab.Screen
-        name="Account"
-        component={AccountNavigator}
-        initialParams={{ teamId, primaryColor }}
-        options={{ headerShown: false }}
-      />
+      <Tab.Screen name="Team" component={TeamHubScreen} initialParams={{ teamId, primaryColor, teamName }} options={{ headerTitle: 'Team' }} />
+      <Tab.Screen name="Chat" component={ChatScreen} initialParams={{ teamId, primaryColor }} />
+      <Tab.Screen name="Account" component={SettingsScreen} initialParams={{ teamId, primaryColor }} options={{ headerTitle: 'Account' }} />
     </Tab.Navigator>
   );
 }
@@ -125,6 +87,11 @@ function AppNavigator() {
           <>
             <Stack.Screen name="Teams" component={TeamPickerScreen} />
             <Stack.Screen name="Team" component={TeamTabs} />
+            <Stack.Screen name="TeamHistory" component={HistoryScreen} options={({ route }) => ({ headerShown: true, headerTitle: 'History', ...headerOpts(route.params?.primaryColor) })} />
+            <Stack.Screen name="TeamRoster" component={RosterScreen} options={({ route }) => ({ headerShown: true, headerTitle: 'Roster', ...headerOpts(route.params?.primaryColor) })} />
+            <Stack.Screen name="TeamSchedule" component={ScheduleScreen} options={({ route }) => ({ headerShown: true, headerTitle: 'Schedule', ...headerOpts(route.params?.primaryColor) })} />
+            <Stack.Screen name="TeamStats" component={StatsScreen} options={({ route }) => ({ headerShown: true, headerTitle: 'Stats', ...headerOpts(route.params?.primaryColor) })} />
+            <Stack.Screen name="PlayerProfile" component={ProfileScreen} options={({ route }) => ({ headerShown: true, headerTitle: 'Profile', ...headerOpts(route.params?.primaryColor) })} />
             <Stack.Screen
               name="Admin"
               component={AdminScreen}
