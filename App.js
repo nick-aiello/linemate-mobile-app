@@ -32,70 +32,34 @@ const TAB_ICONS = {
   Account: 'person',
 };
 
-function TeamHubNavigator({ route }) {
-  const { teamId, teamName, primaryColor = '#c0392b' } = route.params;
-  const headerOpts = {
+function headerOpts(primaryColor) {
+  return {
     headerStyle: { backgroundColor: primaryColor },
     headerTintColor: '#fff',
     headerTitleStyle: { textTransform: 'uppercase', letterSpacing: 2, fontSize: 15 },
+    headerBackTitleVisible: false,
   };
+}
+
+function TeamHubNavigator({ route }) {
+  const { teamId, teamName, primaryColor = '#c0392b' } = route.params;
   return (
-    <TeamStack.Navigator screenOptions={headerOpts}>
-      <TeamStack.Screen
-        name="TeamHub"
-        component={TeamHubScreen}
-        initialParams={{ teamId, teamName, primaryColor }}
-        options={{ headerTitle: teamName }}
-      />
-      <TeamStack.Screen
-        name="TeamHistory"
-        component={HistoryScreen}
-        initialParams={{ teamId, primaryColor }}
-        options={{ headerTitle: 'Lineup History' }}
-      />
-      <TeamStack.Screen
-        name="TeamRoster"
-        component={RosterScreen}
-        initialParams={{ teamId, primaryColor }}
-        options={{ headerTitle: 'Roster' }}
-      />
-      <TeamStack.Screen
-        name="TeamSchedule"
-        component={ScheduleScreen}
-        initialParams={{ teamId, primaryColor, teamName }}
-        options={{ headerTitle: 'Schedule' }}
-      />
-      <TeamStack.Screen
-        name="TeamStats"
-        component={StatsScreen}
-        initialParams={{ teamId, primaryColor }}
-        options={{ headerTitle: 'Stats' }}
-      />
+    <TeamStack.Navigator screenOptions={headerOpts(primaryColor)}>
+      <TeamStack.Screen name="TeamHub" component={TeamHubScreen} initialParams={{ teamId, teamName, primaryColor }} options={{ headerTitle: 'Team' }} />
+      <TeamStack.Screen name="TeamHistory" component={HistoryScreen} initialParams={{ teamId, primaryColor }} options={{ headerTitle: 'History' }} />
+      <TeamStack.Screen name="TeamRoster" component={RosterScreen} initialParams={{ teamId, primaryColor }} options={{ headerTitle: 'Roster' }} />
+      <TeamStack.Screen name="TeamSchedule" component={ScheduleScreen} initialParams={{ teamId, primaryColor, teamName }} options={{ headerTitle: 'Schedule' }} />
+      <TeamStack.Screen name="TeamStats" component={StatsScreen} initialParams={{ teamId, primaryColor }} options={{ headerTitle: 'Stats' }} />
     </TeamStack.Navigator>
   );
 }
 
 function AccountNavigator({ route }) {
   const { teamId, primaryColor = '#c0392b' } = route.params;
-  const headerOpts = {
-    headerStyle: { backgroundColor: primaryColor },
-    headerTintColor: '#fff',
-    headerTitleStyle: { textTransform: 'uppercase', letterSpacing: 2, fontSize: 15 },
-  };
   return (
-    <AccountStack.Navigator screenOptions={headerOpts}>
-      <AccountStack.Screen
-        name="AccountSettings"
-        component={SettingsScreen}
-        initialParams={{ teamId, primaryColor }}
-        options={{ headerTitle: 'Account' }}
-      />
-      <AccountStack.Screen
-        name="PlayerProfile"
-        component={ProfileScreen}
-        initialParams={{ teamId, primaryColor }}
-        options={{ headerTitle: 'My Profile' }}
-      />
+    <AccountStack.Navigator screenOptions={headerOpts(primaryColor)}>
+      <AccountStack.Screen name="AccountSettings" component={SettingsScreen} initialParams={{ teamId, primaryColor }} options={{ headerTitle: 'Account' }} />
+      <AccountStack.Screen name="PlayerProfile" component={ProfileScreen} initialParams={{ teamId, primaryColor }} options={{ headerTitle: 'Profile' }} />
     </AccountStack.Navigator>
   );
 }
@@ -109,10 +73,7 @@ function TeamTabs({ route }) {
         tabBarInactiveTintColor: '#999',
         tabBarStyle: { borderTopColor: '#e0ddd8', backgroundColor: '#fff' },
         tabBarLabelStyle: { fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 },
-        headerStyle: { backgroundColor: primaryColor },
-        headerTintColor: '#fff',
-        headerTitleStyle: { textTransform: 'uppercase', letterSpacing: 2, fontSize: 15 },
-        headerTitle: teamName,
+        ...headerOpts(primaryColor),
         tabBarIcon: ({ color, size }) => (
           <Ionicons name={(TAB_ICONS[tabRoute.name] || 'list') + '-outline'} size={size} color={color} />
         ),
@@ -167,13 +128,7 @@ function AppNavigator() {
             <Stack.Screen
               name="Admin"
               component={AdminScreen}
-              options={{
-                headerShown: true,
-                headerTitle: 'Admin',
-                headerStyle: { backgroundColor: '#1a1a1a' },
-                headerTintColor: '#fff',
-                headerTitleStyle: { textTransform: 'uppercase', letterSpacing: 2, fontSize: 15 },
-              }}
+              options={{ headerShown: true, headerTitle: 'Admin', ...headerOpts('#1a1a1a') }}
             />
           </>
         )}
