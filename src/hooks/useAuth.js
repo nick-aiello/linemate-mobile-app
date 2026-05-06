@@ -18,6 +18,11 @@ export function AuthProvider({ children }) {
     return data.user;
   }
 
+  async function refreshUser() {
+    const fresh = await api.me().catch(() => null);
+    if (fresh) setUser(fresh);
+  }
+
   async function logout() {
     await api.logout().catch(() => {});
     await clearToken();
@@ -25,7 +30,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

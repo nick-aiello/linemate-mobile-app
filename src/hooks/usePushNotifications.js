@@ -25,8 +25,8 @@ export function usePushNotifications(user) {
     responseListener.current = Notifications.addNotificationResponseReceivedListener(() => {});
 
     return () => {
-      Notifications.removeNotificationSubscription(notificationListener.current);
-      Notifications.removeNotificationSubscription(responseListener.current);
+      try { notificationListener.current?.remove(); } catch(e) {}
+      try { responseListener.current?.remove(); } catch(e) {}
     };
   }, [user]);
 }
