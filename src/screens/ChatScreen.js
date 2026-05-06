@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { View, Text, FlatList, TextInput, TouchableOpacity, TouchableWithoutFeedback, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Modal, Pressable, ScrollView, Image, Alert } from 'react-native';
+import { View, Text, FlatList, TextInput, TouchableOpacity, TouchableWithoutFeedback, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Modal, Pressable, ScrollView, Image, Alert, ActionSheetIOS } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../api/client';
 
@@ -48,7 +48,6 @@ function Avatar({ name, color, size = 36, uri }) {
   );
 }
 
-// ─── Section Header ────────────────────────────────────────────────────────────
 function SectionHeader({ label, collapsed, onToggle, right }) {
   return (
     <TouchableOpacity style={styles.sectionHeaderRow} onPress={onToggle} activeOpacity={0.6}>
@@ -59,11 +58,11 @@ function SectionHeader({ label, collapsed, onToggle, right }) {
   );
 }
 
-// ─── Channel List Row ─────────────────────────────────────────────────────────
-function ChannelRow({ channel, onPress }) {
+function ChannelRow({ channel, onPress, primaryColor }) {
   const isDM = channel.type === 'dm';
   const isGame = channel.type === 'game';
   const hasPreview = !!channel.lastMessage;
+  const unread = channel.unreadCount > 0;
   return (
     <TouchableOpacity style={styles.channelRow} onPress={() => onPress(channel)} activeOpacity={0.6}>
       {isDM ? (
@@ -73,7 +72,7 @@ function ChannelRow({ channel, onPress }) {
       )}
       <View style={styles.channelInfo}>
         <View style={styles.channelNameRow}>
-          <Text style={[styles.channelName, hasPreview && styles.channelNameBold]} numberOfLines={1}>
+          <Text style={[styles.channelName, (hasPreview || unread) && styles.channelNameBold]} numberOfLines={1}>
             {(channel.name || '').toLowerCase()}
           </Text>
           {channel.type === 'division' && channel.teamCount > 1 && (
@@ -82,7 +81,7 @@ function ChannelRow({ channel, onPress }) {
           {hasPreview && <Text style={styles.channelTime}>{timeAgo(channel.lastMessage.createdAt)}</Text>}
         </View>
         {hasPreview && (
-          <Text style={styles.channelPreview} numberOfLines={1}>
+          <Text style={[styles.channelPreview, unread && styles.channelPreviewUnread]} numberOfLines={1}>
             {!isDM && channel.lastMessage.authorName
               ? <Text style={styles.channelPreviewAuthor}>{channel.lastMessage.authorName}: </Text>
               : null}
@@ -90,16 +89,35 @@ function ChannelRow({ channel, onPress }) {
           </Text>
         )}
       </View>
+      {unread && (
+        <View style={[styles.unreadBadge, { backgroundColor: primaryColor }]}>
+          <Text style={styles.unreadBadgeText}>
+            {channel.unreadCount > 99 ? '99+' : channel.unreadCount}
+          </Text>
+        </View>
+      )}
     </TouchableOpacity>
   );
 }
 
-// ─── Slack-style Message ──────────────────────────────────────────────────────
+function ReplyQuote({ snippet, authorName, primaryColor }) {
+  return (
+    <View style={styles.replyQuote}>
+      <View style={[styles.replyQuoteBar, { backgroundColor: primaryColor }]} />
+      <Text style={styles.replyQuoteText} numberOfLines={2}>
+        <Text style={styles.replyQuoteAuthor}>{authorName} </Text>
+        {snippet}
+      </Text>
+    </View>
+  );
+}
+
 function MessageRow({ msg, isMe, isDivision, primaryColor, onLongPress, onReact }) {
   const avatarColor = isMe ? primaryColor : (msg.primaryColor || nameColor(msg.displayName));
   const avatarUri = msg.avatarUrl || null;
+  const isDeleted = msg.deleted;
   return (
-    <Pressable onLongPress={() => onLongPress(msg)} delayLongPress={350}>
+    <Pressable onLongPress={() => !isDeleted && onLongPress(msg)} delayLongPress={350}>
       <View style={styles.msgRow}>
         <Avatar name={msg.displayName} color={avatarColor} size={36} uri={avatarUri} />
         <View style={styles.msgBody}>
@@ -116,8 +134,22 @@ function MessageRow({ msg, isMe, isDivision, primaryColor, onLongPress, onReact 
             )}
             <Text style={styles.msgTime}>{formatMsgTime(msg.createdAt)}</Text>
           </View>
-          <Text style={styles.msgText}>{msg.content}</Text>
-          {msg.reactions && msg.reactions.length > 0 && (
+          {msg.replyToSnippet && !isDeleted && (
+            <ReplyQuote
+              snippet={msg.replyToSnippet}
+              authorName={msg.replyToAuthor || ''}
+              primaryColor={primaryColor}
+            />
+          )}
+          {isDeleted ? (
+            <Text style={styles.deletedText}>Message deleted</Text>
+          ) : (
+            <Text style={styles.msgText}>
+              {msg.content}
+              {msg.edited ? <Text style={styles.editedLabel}> (edited)</Text> : null}
+            </Text>
+          )}
+          {!isDeleted && msg.reactions && msg.reactions.length > 0 && (
             <View style={styles.reactions}>
               {msg.reactions.map(r => (
                 <TouchableOpacity
@@ -136,7 +168,6 @@ function MessageRow({ msg, isMe, isDivision, primaryColor, onLongPress, onReact 
   );
 }
 
-// ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function ChatScreen({ route }) {
   const { teamId, primaryColor = '#c0392b' } = route.params;
   const { user } = useAuth();
@@ -150,6 +181,8 @@ export default function ChatScreen({ route }) {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [emojiTarget, setEmojiTarget] = useState(null);
+  const [replyTo, setReplyTo] = useState(null);
+  const [editingMsg, setEditingMsg] = useState(null);
   const [showPeoplePicker, setShowPeoplePicker] = useState(false);
   const [members, setMembers] = useState([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
@@ -158,6 +191,7 @@ export default function ChatScreen({ route }) {
   const [newChannelName, setNewChannelName] = useState('');
   const [creatingChannel, setCreatingChannel] = useState(false);
   const listRef = useRef();
+  const inputRef = useRef();
   const pollRef = useRef();
 
   const loadChannels = useCallback(async () => {
@@ -189,13 +223,20 @@ export default function ChatScreen({ route }) {
   function openChannel(channel) {
     setActiveChannel(channel);
     setMessages([]);
+    setReplyTo(null);
+    setEditingMsg(null);
+    setText('');
     loadMessages(channel.id);
+    api.markRead(channel.id).catch(() => {});
   }
 
   function closeChannel() {
     clearInterval(pollRef.current);
     setActiveChannel(null);
     setMessages([]);
+    setReplyTo(null);
+    setEditingMsg(null);
+    setText('');
     loadChannels();
   }
 
@@ -216,12 +257,23 @@ export default function ChatScreen({ route }) {
     if (!content || sending || !activeChannel) return;
     setSending(true);
     setText('');
+    const currentReply = replyTo;
+    const currentEdit = editingMsg;
+    setReplyTo(null);
+    setEditingMsg(null);
     try {
-      await api.sendChannelMessage(activeChannel.id, content);
+      if (currentEdit) {
+        await api.editMessage(activeChannel.id, currentEdit.id, content);
+      } else {
+        await api.sendChannelMessage(activeChannel.id, content, currentReply?.id);
+      }
       const data = await api.channelMessages(activeChannel.id);
       setMessages(data.messages || []);
     } catch(e) {
       setText(content);
+      if (currentReply) setReplyTo(currentReply);
+      if (currentEdit) setEditingMsg(currentEdit);
+      Alert.alert('Error', e?.message || 'Failed to send');
     } finally {
       setSending(false);
     }
@@ -233,6 +285,65 @@ export default function ChatScreen({ route }) {
     await api.reactChannelMessage(activeChannel.id, msg.id, emoji).catch(() => {});
     const data = await api.channelMessages(activeChannel.id);
     setMessages(data.messages || []);
+  }
+
+  async function handleDelete(msgId) {
+    try {
+      await api.deleteMessage(activeChannel.id, msgId);
+      const data = await api.channelMessages(activeChannel.id);
+      setMessages(data.messages || []);
+    } catch(e) {
+      Alert.alert('Error', e?.message || 'Failed to delete');
+    }
+  }
+
+  function handleLongPress(msg) {
+    const isMe = msg.userId === user?.id;
+    const options = ['Add Reaction', 'Reply', ...(isMe ? ['Edit', 'Delete'] : []), 'Cancel'];
+    const cancelIndex = options.length - 1;
+    const destructiveIndex = isMe ? options.indexOf('Delete') : -1;
+
+    const onSelect = (action) => {
+      if (action === 'Add Reaction') {
+        setEmojiTarget(msg);
+      } else if (action === 'Reply') {
+        setEditingMsg(null);
+        setText('');
+        setReplyTo(msg);
+        setTimeout(() => inputRef.current?.focus(), 100);
+      } else if (action === 'Edit') {
+        setReplyTo(null);
+        setEditingMsg(msg);
+        setText(msg.content || '');
+        setTimeout(() => inputRef.current?.focus(), 100);
+      } else if (action === 'Delete') {
+        Alert.alert('Delete message?', 'This cannot be undone.', [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Delete', style: 'destructive', onPress: () => handleDelete(msg.id) },
+        ]);
+      }
+    };
+
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { options, cancelButtonIndex: cancelIndex, destructiveButtonIndex: destructiveIndex },
+        (idx) => onSelect(options[idx])
+      );
+    } else {
+      Alert.alert('Message', null, [
+        { text: 'Add Reaction', onPress: () => onSelect('Add Reaction') },
+        { text: 'Reply', onPress: () => onSelect('Reply') },
+        ...(isMe ? [{ text: 'Edit', onPress: () => onSelect('Edit') }] : []),
+        ...(isMe ? [{ text: 'Delete', style: 'destructive', onPress: () => onSelect('Delete') }] : []),
+        { text: 'Cancel', style: 'cancel' },
+      ]);
+    }
+  }
+
+  function cancelReplyOrEdit() {
+    setReplyTo(null);
+    setEditingMsg(null);
+    setText('');
   }
 
   async function openPeoplePicker() {
@@ -285,7 +396,9 @@ export default function ChatScreen({ route }) {
         lastDay = day;
         lastUserId = null;
       }
-      items.push({ type: 'msg', key: String(msg.id), msg, compact: msg.userId === lastUserId });
+      // Don't compact if this message has a reply quote — always show full row
+      const compact = msg.userId === lastUserId && !msg.replyToSnippet && !msg.deleted;
+      items.push({ type: 'msg', key: String(msg.id), msg, compact });
       lastUserId = msg.userId;
     }
     return items;
@@ -307,7 +420,6 @@ export default function ChatScreen({ route }) {
         )}
         <ScrollView contentContainerStyle={styles.channelList} keyboardShouldPersistTaps="handled">
 
-          {/* Channels */}
           <SectionHeader
             label="Channels"
             collapsed={collapsed.channels}
@@ -320,14 +432,15 @@ export default function ChatScreen({ route }) {
           />
           {!collapsed.channels && (
             <>
-              {channels.teamChannels.filter(ch => ch.type !== 'game').map(ch => <ChannelRow key={ch.id} channel={ch} onPress={openChannel} />)}
+              {channels.teamChannels.filter(ch => ch.type !== 'game').map(ch => (
+                <ChannelRow key={ch.id} channel={ch} onPress={openChannel} primaryColor={primaryColor} />
+              ))}
               {channels.teamChannels.filter(ch => ch.type !== 'game').length === 0 && (
                 <Text style={styles.sectionEmpty}>No channels yet.</Text>
               )}
             </>
           )}
 
-          {/* Games */}
           {channels.teamChannels.some(ch => ch.type === 'game') && (
             <>
               <SectionHeader
@@ -336,12 +449,11 @@ export default function ChatScreen({ route }) {
                 onToggle={() => setCollapsed(v => ({ ...v, games: !v.games }))}
               />
               {!collapsed.games && channels.teamChannels.filter(ch => ch.type === 'game').map(ch => (
-                <ChannelRow key={ch.id} channel={ch} onPress={openChannel} />
+                <ChannelRow key={ch.id} channel={ch} onPress={openChannel} primaryColor={primaryColor} />
               ))}
             </>
           )}
 
-          {/* League */}
           {channels.leagueChannels.length > 0 && (
             <>
               <SectionHeader
@@ -350,12 +462,11 @@ export default function ChatScreen({ route }) {
                 onToggle={() => setCollapsed(v => ({ ...v, league: !v.league }))}
               />
               {!collapsed.league && channels.leagueChannels.map(ch => (
-                <ChannelRow key={ch.id} channel={ch} onPress={openChannel} />
+                <ChannelRow key={ch.id} channel={ch} onPress={openChannel} primaryColor={primaryColor} />
               ))}
             </>
           )}
 
-          {/* Division */}
           {channels.divChannel && (
             <>
               <SectionHeader
@@ -364,12 +475,11 @@ export default function ChatScreen({ route }) {
                 onToggle={() => setCollapsed(v => ({ ...v, division: !v.division }))}
               />
               {!collapsed.division && (
-                <ChannelRow channel={channels.divChannel} onPress={openChannel} />
+                <ChannelRow channel={channels.divChannel} onPress={openChannel} primaryColor={primaryColor} />
               )}
             </>
           )}
 
-          {/* Direct Messages */}
           <SectionHeader
             label="Direct Messages"
             collapsed={collapsed.dms}
@@ -386,13 +496,14 @@ export default function ChatScreen({ route }) {
                 <Text style={styles.dmEmptyText}>Start a direct message</Text>
               </TouchableOpacity>
             ) : (
-              channels.dmChannels.map(ch => <ChannelRow key={ch.id} channel={ch} onPress={openChannel} />)
+              channels.dmChannels.map(ch => (
+                <ChannelRow key={ch.id} channel={ch} onPress={openChannel} primaryColor={primaryColor} />
+              ))
             )
           )}
 
         </ScrollView>
 
-        {/* People picker modal */}
         <Modal visible={showPeoplePicker} transparent animationType="slide">
           <TouchableWithoutFeedback onPress={() => setShowPeoplePicker(false)}>
             <View style={styles.pickerOverlay}>
@@ -422,7 +533,7 @@ export default function ChatScreen({ route }) {
             </View>
           </TouchableWithoutFeedback>
         </Modal>
-        {/* New channel modal */}
+
         <Modal visible={showNewChannel} transparent animationType="slide">
           <TouchableWithoutFeedback onPress={() => setShowNewChannel(false)}>
             <View style={styles.pickerOverlay}>
@@ -460,7 +571,6 @@ export default function ChatScreen({ route }) {
             </View>
           </TouchableWithoutFeedback>
         </Modal>
-
       </View>
     );
   }
@@ -474,9 +584,15 @@ export default function ChatScreen({ route }) {
     : activeChannel.type === 'game' ? 'Game channel'
     : 'Team channel';
 
+  const inputPlaceholder = editingMsg
+    ? 'Edit message…'
+    : replyTo
+    ? `Reply to ${replyTo.displayName}…`
+    : isDM ? 'Message ' + activeChannel.name
+    : 'Message #' + activeChannel.name;
+
   return (
     <View style={styles.container}>
-      {/* Thread header */}
       <View style={styles.threadHeader}>
         <TouchableOpacity onPress={closeChannel} style={styles.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Text style={[styles.backArrow, { color: primaryColor }]}>‹</Text>
@@ -534,13 +650,21 @@ export default function ChatScreen({ route }) {
               }
               const { msg, compact } = item;
               const isMe = msg.userId === user?.id;
+              const isDeleted = msg.deleted;
 
               if (compact) {
                 return (
-                  <Pressable onLongPress={() => setEmojiTarget(msg)} delayLongPress={350}>
+                  <Pressable onLongPress={() => !isDeleted && handleLongPress(msg)} delayLongPress={350}>
                     <View style={styles.msgCompact}>
-                      <Text style={styles.msgText}>{msg.content}</Text>
-                      {msg.reactions && msg.reactions.length > 0 && (
+                      {isDeleted ? (
+                        <Text style={styles.deletedText}>Message deleted</Text>
+                      ) : (
+                        <Text style={styles.msgText}>
+                          {msg.content}
+                          {msg.edited ? <Text style={styles.editedLabel}> (edited)</Text> : null}
+                        </Text>
+                      )}
+                      {!isDeleted && msg.reactions && msg.reactions.length > 0 && (
                         <View style={styles.reactions}>
                           {msg.reactions.map(r => (
                             <TouchableOpacity
@@ -564,7 +688,7 @@ export default function ChatScreen({ route }) {
                   isMe={isMe}
                   isDivision={isDivision}
                   primaryColor={primaryColor}
-                  onLongPress={setEmojiTarget}
+                  onLongPress={handleLongPress}
                   onReact={handleReact}
                 />
               );
@@ -572,13 +696,28 @@ export default function ChatScreen({ route }) {
           />
         )}
 
+        {(replyTo || editingMsg) && (
+          <View style={[styles.replyPreviewBar, { borderTopColor: primaryColor }]}>
+            <View style={[styles.replyPreviewAccent, { backgroundColor: primaryColor }]} />
+            <Text style={styles.replyPreviewText} numberOfLines={1}>
+              {editingMsg
+                ? 'Editing message'
+                : `Reply to ${replyTo.displayName}: ${(replyTo.content || '').slice(0, 80)}`}
+            </Text>
+            <TouchableOpacity onPress={cancelReplyOrEdit} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={styles.replyPreviewCancel}>✕</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         <View style={styles.inputBar}>
           <TouchableOpacity style={styles.plusBtn}>
             <Text style={styles.plusText}>+</Text>
           </TouchableOpacity>
           <TextInput
+            ref={inputRef}
             style={styles.input}
-            placeholder={isDM ? 'Message ' + activeChannel.name : 'Message #' + activeChannel.name}
+            placeholder={inputPlaceholder}
             placeholderTextColor="#aaa"
             value={text}
             onChangeText={setText}
@@ -593,12 +732,11 @@ export default function ChatScreen({ route }) {
           >
             {sending
               ? <ActivityIndicator color="#fff" size="small" />
-              : <Text style={styles.sendText}>↑</Text>}
+              : <Text style={styles.sendText}>{editingMsg ? '✓' : '↑'}</Text>}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
 
-      {/* Emoji picker */}
       <Modal visible={!!emojiTarget} transparent animationType="fade">
         <TouchableWithoutFeedback onPress={() => setEmojiTarget(null)}>
           <View style={styles.emojiOverlay}>
@@ -637,37 +775,16 @@ const styles = StyleSheet.create({
   errorBannerText: { flex: 1, fontSize: 13, color: '#dc2626' },
   errorBannerRetry: { fontSize: 13, color: '#dc2626', fontWeight: '700' },
 
-  // ── Channel list ────────────────────────────────────────────────────────────
   channelList: { paddingTop: 4, paddingBottom: 40 },
 
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingTop: 18,
-    paddingBottom: 4,
-    gap: 4,
-  },
-  sectionChevron: {
-    fontSize: 16,
-    color: '#666',
-    width: 18,
-    transform: [{ rotate: '90deg' }],
-  },
-  sectionChevronCollapsed: {
-    transform: [{ rotate: '0deg' }],
-  },
+  sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingTop: 18, paddingBottom: 4, gap: 4 },
+  sectionChevron: { fontSize: 16, color: '#666', width: 18, transform: [{ rotate: '90deg' }] },
+  sectionChevronCollapsed: { transform: [{ rotate: '0deg' }] },
   sectionHeader: { fontSize: 15, fontWeight: '700', color: '#1a1a1a', flex: 1 },
   sectionAction: { fontSize: 14, fontWeight: '600' },
   sectionEmpty: { fontSize: 14, color: '#bbb', paddingHorizontal: 46, paddingVertical: 6, fontStyle: 'italic' },
 
-  channelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 11,
-  },
+  channelRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, gap: 11 },
   channelHash: { fontSize: 17, color: '#888', width: 30, textAlign: 'center' },
   channelInfo: { flex: 1, minWidth: 0 },
   channelNameRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
@@ -676,23 +793,17 @@ const styles = StyleSheet.create({
   channelTeamCount: { fontSize: 11, color: '#bbb' },
   channelTime: { fontSize: 12, color: '#bbb', flexShrink: 0 },
   channelPreview: { fontSize: 13, color: '#aaa', lineHeight: 17, marginTop: 1 },
+  channelPreviewUnread: { color: '#555', fontWeight: '500' },
   channelPreviewAuthor: { fontWeight: '600', color: '#777' },
   separator: { height: StyleSheet.hairlineWidth, backgroundColor: '#f0f0f0', marginLeft: 56 },
+
+  unreadBadge: { minWidth: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5, flexShrink: 0 },
+  unreadBadgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
 
   dmEmptyRow: { paddingHorizontal: 46, paddingVertical: 8 },
   dmEmptyText: { fontSize: 14, color: '#aaa', fontStyle: 'italic' },
 
-  // ── Thread header ───────────────────────────────────────────────────────────
-  threadHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e0e0e0',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 10,
-  },
+  threadHeader: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#e0e0e0', paddingHorizontal: 14, paddingVertical: 10, gap: 10 },
   backBtn: { paddingRight: 4 },
   backArrow: { fontSize: 28, fontWeight: '300', lineHeight: 32 },
   threadTitleWrap: { flex: 1, minWidth: 0 },
@@ -701,7 +812,6 @@ const styles = StyleSheet.create({
   threadTitle: { fontSize: 16, fontWeight: '700', color: '#1a1a1a', flex: 1 },
   threadSubtitle: { fontSize: 12, color: '#aaa', marginTop: 1 },
 
-  // ── Messages ────────────────────────────────────────────────────────────────
   messageList: { paddingHorizontal: 14, paddingTop: 16, paddingBottom: 8 },
   emptyThread: { alignItems: 'center', paddingTop: 60, gap: 8 },
   emptyDmName: { fontSize: 18, fontWeight: '700', color: '#1a1a1a', marginTop: 6 },
@@ -712,10 +822,8 @@ const styles = StyleSheet.create({
   dayLabel: { fontSize: 12, color: '#aaa', fontWeight: '600' },
 
   msgRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 14, gap: 10 },
-
   avatar: { alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 },
   avatarText: { color: '#fff', fontWeight: '700' },
-
   msgBody: { flex: 1, minWidth: 0 },
   msgHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 3, flexWrap: 'wrap' },
   msgAuthor: { fontSize: 14, fontWeight: '700', color: '#1a1a1a' },
@@ -723,59 +831,32 @@ const styles = StyleSheet.create({
   teamTagText: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4 },
   msgTime: { fontSize: 11, color: '#bbb', marginLeft: 2 },
   msgText: { fontSize: 15, color: '#1a1a1a', lineHeight: 21 },
+  deletedText: { fontSize: 14, color: '#bbb', fontStyle: 'italic' },
+  editedLabel: { fontSize: 11, color: '#bbb' },
 
   msgCompact: { marginBottom: 4, paddingLeft: MSG_INDENT },
 
+  replyQuote: { flexDirection: 'row', marginBottom: 5, alignItems: 'flex-start', gap: 6 },
+  replyQuoteBar: { width: 2.5, borderRadius: 2, alignSelf: 'stretch', minHeight: 16, flexShrink: 0 },
+  replyQuoteText: { fontSize: 13, color: '#888', flex: 1, lineHeight: 18 },
+  replyQuoteAuthor: { fontWeight: '700', color: '#666' },
+
+  replyPreviewBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#f9f9f9', borderTopWidth: 2, gap: 8 },
+  replyPreviewAccent: { width: 3, height: 28, borderRadius: 2, flexShrink: 0 },
+  replyPreviewText: { flex: 1, fontSize: 13, color: '#555' },
+  replyPreviewCancel: { fontSize: 16, color: '#bbb', paddingLeft: 4 },
+
   reactions: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 5, gap: 4 },
-  reactionPill: {
-    backgroundColor: '#f5f5f5',
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderWidth: 1,
-    borderColor: '#e8e8e8',
-  },
+  reactionPill: { backgroundColor: '#f5f5f5', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: '#e8e8e8' },
   reactionText: { fontSize: 13 },
 
-  // ── Input bar ───────────────────────────────────────────────────────────────
-  inputBar: {
-    flexDirection: 'row',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    paddingBottom: 12,
-    backgroundColor: '#fff',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#e0e0e0',
-    alignItems: 'flex-end',
-    gap: 8,
-  },
-  plusBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: '#f0f0f0',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-    marginBottom: 3,
-  },
+  inputBar: { flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 10, paddingBottom: 12, backgroundColor: '#fff', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#e0e0e0', alignItems: 'flex-end', gap: 8 },
+  plusBtn: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#f0f0f0', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginBottom: 3 },
   plusText: { fontSize: 20, color: '#888', lineHeight: 24 },
-  input: {
-    flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    fontSize: 15,
-    maxHeight: 120,
-    color: '#1a1a1a',
-    borderWidth: 1,
-    borderColor: '#ddd',
-  },
+  input: { flex: 1, backgroundColor: '#fff', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: 15, maxHeight: 120, color: '#1a1a1a', borderWidth: 1, borderColor: '#ddd' },
   sendBtn: { width: 34, height: 34, borderRadius: 8, justifyContent: 'center', alignItems: 'center', flexShrink: 0, marginBottom: 2 },
   sendText: { color: '#fff', fontSize: 17, fontWeight: '700' },
 
-  // ── People picker ────────────────────────────────────────────────────────────
   pickerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'flex-end' },
   pickerSheet: { backgroundColor: '#fff', borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingTop: 12, paddingBottom: 40, maxHeight: '70%' },
   pickerHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: '#ddd', alignSelf: 'center', marginBottom: 12 },
@@ -790,7 +871,6 @@ const styles = StyleSheet.create({
   newChannelBtn: { marginHorizontal: 20, borderRadius: 8, paddingVertical: 14, alignItems: 'center' },
   newChannelBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 
-  // ── Emoji picker ─────────────────────────────────────────────────────────────
   emojiOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'flex-end' },
   emojiSheet: { backgroundColor: '#fff', borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 20, paddingBottom: 44, alignItems: 'center' },
   emojiSheetHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: '#ddd', marginBottom: 16 },
