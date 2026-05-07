@@ -49,7 +49,7 @@ function TeamTabs({ route }) {
         tabBarInactiveTintColor: '#999',
         tabBarStyle: { borderTopColor: '#e0ddd8', backgroundColor: '#fff' },
         tabBarLabelStyle: { fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 },
-        header: () => <BrandHeader teamId={teamId} teamName={teamName} primaryColor={primaryColor} />,
+        header: () => <BrandHeader teamId={teamId} pageName={tabRoute.name} primaryColor={primaryColor} />,
         tabBarIcon: ({ color, size }) => (
           <Ionicons name={(TAB_ICONS[tabRoute.name] || 'list') + '-outline'} size={size} color={color} />
         ),
