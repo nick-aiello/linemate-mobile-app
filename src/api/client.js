@@ -62,17 +62,13 @@ export const api = {
   channels: (teamId) => request('GET', '/teams/' + teamId + '/channels'),
   createChannel: (teamId, name) => request('POST', '/teams/' + teamId + '/channels', { name }),
   channelMessages: (channelId, beforeId) => request('GET', '/channels/' + channelId + '/messages' + (beforeId ? '?before=' + beforeId : '')),
-  sendChannelMessage: (channelId, content) => request('POST', '/channels/' + channelId + '/messages', { content }),
-  reactChannelMessage: (channelId, msgId, emoji) => request('POST', '/channels/' + channelId + '/messages/' + msgId + '/react', { emoji }),
-  teamMembers: (teamId) => request('GET', '/teams/' + teamId + '/members'),
-  dmOpen: (teamId, targetUserId) => request('POST', '/teams/' + teamId + '/dm/open', { targetUserId }),
-
-  channelMessages: (channelId, beforeId) => request('GET', '/channels/' + channelId + '/messages' + (beforeId ? '?before=' + beforeId : '')),
   sendChannelMessage: (channelId, content, replyToId) => request('POST', '/channels/' + channelId + '/messages', { content, ...(replyToId ? { replyToId } : {}) }),
   editMessage: (channelId, msgId, content) => request('PATCH', '/channels/' + channelId + '/messages/' + msgId, { content }),
   deleteMessage: (channelId, msgId) => request('DELETE', '/channels/' + channelId + '/messages/' + msgId),
-  reactChannel: (channelId, msgId, emoji) => request('POST', '/channels/' + channelId + '/messages/' + msgId + '/react', { emoji }),
+  reactChannelMessage: (channelId, msgId, emoji) => request('POST', '/channels/' + channelId + '/messages/' + msgId + '/react', { emoji }),
   markRead: (channelId) => request('POST', '/channels/' + channelId + '/read'),
+  teamMembers: (teamId) => request('GET', '/teams/' + teamId + '/members'),
+  dmOpen: (teamId, targetUserId) => request('POST', '/teams/' + teamId + '/dm/open', { targetUserId }),
 
   subs: (teamId) => request('GET', '/teams/' + teamId + '/subs'),
   createSub: (teamId, playerName, message, gameId) => request('POST', '/teams/' + teamId + '/subs', { playerName, message, gameId }),
@@ -98,6 +94,11 @@ export const api = {
   generateInvite: (teamId) => request('POST', '/teams/' + teamId + '/invite/generate'),
   uploadAvatar: (imageBase64, mimeType) => request('POST', '/me/avatar', { imageBase64, mimeType }),
   saveBio: (teamId, bio) => request('PATCH', '/me/bio', { teamId, bio }),
+
+  setAvailability: (teamId, playerName, status, gameId) => request('POST', '/teams/' + teamId + '/availability', { playerName, status, ...(gameId ? { gameId } : {}) }),
+  getAnnouncements: (teamId) => request('GET', '/teams/' + teamId + '/announcements'),
+  postAnnouncement: (teamId, message) => request('POST', '/teams/' + teamId + '/announcements', { message }),
+  deleteAnnouncement: (teamId, id) => request('DELETE', '/teams/' + teamId + '/announcements/' + id),
 
   // Admin
   adminSummary: () => request('GET', '/admin/summary'),

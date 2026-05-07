@@ -24,8 +24,8 @@ const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 const TAB_ICONS = {
-  Lineup: 'list',
   Team: 'people',
+  Lineup: 'list',
   Chat: 'chatbubbles',
   Account: 'person',
 };
@@ -55,12 +55,12 @@ function TeamTabs({ route }) {
         ),
       })}
     >
+      <Tab.Screen name="Team" component={TeamHubScreen} initialParams={{ teamId, primaryColor, teamName }} options={{ headerTitle: 'Team' }} />
       <Tab.Screen
         name="Lineup"
         component={LineupScreen}
         initialParams={{ teamId, primaryColor, teamName }}
       />
-      <Tab.Screen name="Team" component={TeamHubScreen} initialParams={{ teamId, primaryColor, teamName }} options={{ headerTitle: 'Team' }} />
       <Tab.Screen name="Chat" component={ChatScreen} initialParams={{ teamId, primaryColor }} />
       <Tab.Screen name="Account" component={SettingsScreen} initialParams={{ teamId, primaryColor }} options={{ headerTitle: 'Account' }} />
     </Tab.Navigator>
