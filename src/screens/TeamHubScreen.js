@@ -182,37 +182,51 @@ export default function TeamHubScreen({ route, navigation }) {
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={primaryColor} />}
       >
-        {/* Record */}
-        {record && (
-          <View style={[styles.recordBadge, { backgroundColor: primaryColor + '18', marginBottom: 16 }]}>
-            <Text style={[styles.recordText, { color: primaryColor }]}>{record}</Text>
-          </View>
-        )}
-
-        {/* Next game */}
-        <View style={[styles.gameCard, { borderLeftColor: primaryColor }]}>
-          <View style={styles.gameCardTop}>
-            <Text style={styles.gameCardEyebrow}>NEXT GAME</Text>
-            {nextGame && (
-              <TouchableOpacity onPress={() => { setNoteText(nextGame.notes || ''); setShowNoteModal(true); }} hitSlop={8}>
-                <Ionicons name="create-outline" size={16} color="#bbb" />
-              </TouchableOpacity>
+        {/* Hero */}
+        <View style={[styles.hero, { backgroundColor: primaryColor }]}>
+          <Image
+            source={{ uri: `${BASE_URL}/${teamId}/logo/main` }}
+            style={styles.heroLogo}
+            resizeMode="contain"
+          />
+          <View style={styles.heroInfo}>
+            <View style={styles.heroEyebrowRow}>
+              <Text style={styles.heroEyebrow}>NEXT GAME</Text>
+              {nextGame && (
+                <TouchableOpacity onPress={() => { setNoteText(nextGame.notes || ''); setShowNoteModal(true); }} hitSlop={8}>
+                  <Ionicons name="create-outline" size={14} color="rgba(255,255,255,0.7)" />
+                </TouchableOpacity>
+              )}
+            </View>
+            {nextGame ? (
+              <>
+                <Text style={styles.heroOpp} numberOfLines={2}>
+                  {nextGame.isHome === false ? '@ ' : 'vs '}{nextGame.opponent || 'TBD'}
+                </Text>
+                <Text style={styles.heroMeta}>
+                  {formatGameDate(nextGame.date, nextGame.time)}{nextGame.rink ? '  ·  ' + nextGame.rink : ''}
+                </Text>
+              </>
+            ) : (
+              <Text style={styles.heroOpp}>No upcoming games</Text>
+            )}
+            {record && (
+              <View style={styles.heroRecordRow}>
+                <Text style={styles.heroRecordLabel}>RECORD</Text>
+                <Text style={styles.heroRecord}>{record}</Text>
+              </View>
             )}
           </View>
-          {nextGame ? (
-            <>
-              <Text style={styles.gameCardOpp}>
-                {nextGame.isHome === false ? '@ ' : 'vs '}{nextGame.opponent || 'TBD'}
-              </Text>
-              <Text style={styles.gameCardMeta}>
-                {formatGameDate(nextGame.date, nextGame.time)}{nextGame.rink ? '  ·  ' + nextGame.rink : ''}
-              </Text>
-              {nextGame.notes ? <Text style={styles.gameCardNotes}>{nextGame.notes}</Text> : null}
-            </>
-          ) : (
-            <Text style={styles.gameCardOpp}>No upcoming games</Text>
-          )}
         </View>
+
+        {nextGame?.notes ? (
+          <View style={[styles.notesCard, { borderLeftColor: primaryColor }]}>
+            <Text style={styles.notesEyebrow}>NOTES</Text>
+            <Text style={styles.notesText}>{nextGame.notes}</Text>
+          </View>
+        ) : null}
+
+        <View style={styles.contentInner}>
 
         {/* Availability buttons */}
         {nextGame && (
@@ -321,6 +335,7 @@ export default function TeamHubScreen({ route, navigation }) {
             </TouchableOpacity>
           ))}
         </View>
+        </View>
       </ScrollView>
 
       {/* Announcement modal */}
@@ -387,17 +402,23 @@ export default function TeamHubScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f2ec' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  content: { padding: 16, paddingBottom: 48 },
+  content: { paddingBottom: 48 },
+  contentInner: { padding: 16, paddingTop: 18 },
 
-  recordBadge: { borderRadius: 4, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start' },
-  recordText: { fontSize: 11, fontWeight: '700', letterSpacing: 1 },
+  hero: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 18, paddingVertical: 22 },
+  heroLogo: { width: 90, height: 90 },
+  heroInfo: { flex: 1, gap: 4 },
+  heroEyebrowRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  heroEyebrow: { fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.75)', letterSpacing: 1.5 },
+  heroOpp: { fontSize: 20, fontWeight: '700', color: '#fff', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 2 },
+  heroMeta: { fontSize: 11, color: 'rgba(255,255,255,0.85)', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 2 },
+  heroRecordRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.18)' },
+  heroRecordLabel: { fontSize: 9, fontWeight: '700', color: 'rgba(255,255,255,0.7)', letterSpacing: 1.5 },
+  heroRecord: { fontSize: 14, fontWeight: '700', color: '#fff', letterSpacing: 1 },
 
-  gameCard: { backgroundColor: '#fff', borderRadius: 4, padding: 16, marginBottom: 16, borderLeftWidth: 4 },
-  gameCardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
-  gameCardEyebrow: { fontSize: 9, fontWeight: '700', color: '#aaa', letterSpacing: 1.5 },
-  gameCardOpp: { fontSize: 22, fontWeight: '700', color: '#1a1a1a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
-  gameCardMeta: { fontSize: 12, color: '#888', textTransform: 'uppercase', letterSpacing: 0.5 },
-  gameCardNotes: { fontSize: 13, color: '#555', marginTop: 10, lineHeight: 18, fontStyle: 'italic', borderTopWidth: 1, borderTopColor: '#f0ede8', paddingTop: 10 },
+  notesCard: { backgroundColor: '#fff', padding: 14, marginHorizontal: 16, marginTop: 16, borderRadius: 4, borderLeftWidth: 3 },
+  notesEyebrow: { fontSize: 9, fontWeight: '700', color: '#aaa', letterSpacing: 1.5, marginBottom: 4 },
+  notesText: { fontSize: 13, color: '#555', lineHeight: 18, fontStyle: 'italic' },
 
   section: { marginBottom: 16 },
   sectionLabel: { fontSize: 9, fontWeight: '700', color: '#aaa', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8 },
