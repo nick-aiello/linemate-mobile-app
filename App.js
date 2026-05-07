@@ -1,8 +1,8 @@
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, useNavigation } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, TouchableOpacity, View } from 'react-native';
 import { AuthProvider, useAuth } from './src/hooks/useAuth';
 import { usePushNotifications } from './src/hooks/usePushNotifications';
 
@@ -30,13 +30,22 @@ const TAB_ICONS = {
   Account: 'person',
 };
 
+function BackButton() {
+  const navigation = useNavigation();
+  return (
+    <TouchableOpacity onPress={() => navigation.goBack()} style={{ paddingRight: 8 }}>
+      <Ionicons name="chevron-back" size={26} color="#fff" />
+    </TouchableOpacity>
+  );
+}
+
 function headerOpts(primaryColor) {
   return {
     headerStyle: { backgroundColor: primaryColor },
     headerTintColor: '#fff',
     headerTitleStyle: { letterSpacing: 2, fontSize: 15, fontWeight: '600' },
-    headerBackTitleVisible: false,
-    headerBackTitle: '',
+    headerBackVisible: false,
+    headerLeft: () => <BackButton />,
   };
 }
 
