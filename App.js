@@ -34,8 +34,9 @@ function headerOpts(primaryColor) {
   return {
     headerStyle: { backgroundColor: primaryColor },
     headerTintColor: '#fff',
-    headerTitleStyle: { textTransform: 'uppercase', letterSpacing: 2, fontSize: 15 },
+    headerTitleStyle: { letterSpacing: 2, fontSize: 15, fontWeight: '600' },
     headerBackTitleVisible: false,
+    headerBackTitle: '',
   };
 }
 
@@ -55,14 +56,14 @@ function TeamTabs({ route }) {
         ),
       })}
     >
-      <Tab.Screen name="Team" component={TeamHubScreen} initialParams={{ teamId, primaryColor, teamName }} options={{ headerTitle: 'Team' }} />
+      <Tab.Screen name="Team" component={TeamHubScreen} initialParams={{ teamId, primaryColor, teamName }} options={{ headerTitle: 'TEAM' }} />
       <Tab.Screen
         name="Lineup"
         component={LineupScreen}
         initialParams={{ teamId, primaryColor, teamName }}
       />
       <Tab.Screen name="Chat" component={ChatScreen} initialParams={{ teamId, primaryColor }} />
-      <Tab.Screen name="Account" component={SettingsScreen} initialParams={{ teamId, primaryColor }} options={{ headerTitle: 'Account' }} />
+      <Tab.Screen name="Account" component={SettingsScreen} initialParams={{ teamId, primaryColor }} options={{ headerTitle: 'ACCOUNT' }} />
     </Tab.Navigator>
   );
 }
@@ -87,15 +88,15 @@ function AppNavigator() {
           <>
             <Stack.Screen name="Teams" component={TeamPickerScreen} />
             <Stack.Screen name="Team" component={TeamTabs} />
-            <Stack.Screen name="TeamHistory" component={HistoryScreen} options={({ route }) => ({ headerShown: true, headerTitle: 'History', ...headerOpts(route.params?.primaryColor) })} />
-            <Stack.Screen name="TeamRoster" component={RosterScreen} options={({ route }) => ({ headerShown: true, headerTitle: 'Roster', ...headerOpts(route.params?.primaryColor) })} />
-            <Stack.Screen name="TeamSchedule" component={ScheduleScreen} options={({ route }) => ({ headerShown: true, headerTitle: 'Schedule', ...headerOpts(route.params?.primaryColor) })} />
-            <Stack.Screen name="TeamStats" component={StatsScreen} options={({ route }) => ({ headerShown: true, headerTitle: 'Stats', ...headerOpts(route.params?.primaryColor) })} />
-            <Stack.Screen name="PlayerProfile" component={ProfileScreen} options={({ route }) => ({ headerShown: true, headerTitle: 'Profile', ...headerOpts(route.params?.primaryColor) })} />
+            <Stack.Screen name="TeamHistory" component={HistoryScreen} options={({ route }) => ({ headerShown: true, headerTitle: 'HISTORY', headerLargeTitle: false, ...headerOpts(route.params?.primaryColor) })} />
+            <Stack.Screen name="TeamRoster" component={RosterScreen} options={({ route }) => ({ headerShown: true, headerTitle: 'ROSTER', headerLargeTitle: false, ...headerOpts(route.params?.primaryColor) })} />
+            <Stack.Screen name="TeamSchedule" component={ScheduleScreen} options={({ route }) => ({ headerShown: true, headerTitle: 'SCHEDULE', headerLargeTitle: false, ...headerOpts(route.params?.primaryColor) })} />
+            <Stack.Screen name="TeamStats" component={StatsScreen} options={({ route }) => ({ headerShown: true, headerTitle: 'STATS', headerLargeTitle: false, ...headerOpts(route.params?.primaryColor) })} />
+            <Stack.Screen name="PlayerProfile" component={ProfileScreen} options={({ route }) => ({ headerShown: true, headerTitle: 'PROFILE', headerLargeTitle: false, ...headerOpts(route.params?.primaryColor) })} />
             <Stack.Screen
               name="Admin"
               component={AdminScreen}
-              options={{ headerShown: true, headerTitle: 'Admin', ...headerOpts('#1a1a1a') }}
+              options={{ headerShown: true, headerTitle: 'ADMIN', headerLargeTitle: false, ...headerOpts('#1a1a1a') }}
             />
           </>
         )}
