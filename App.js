@@ -2,8 +2,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { ActivityIndicator, Image, View } from 'react-native';
-import { BASE_URL } from './src/api/client';
+import { ActivityIndicator, View } from 'react-native';
 import { AuthProvider, useAuth } from './src/hooks/useAuth';
 import { usePushNotifications } from './src/hooks/usePushNotifications';
 
@@ -40,16 +39,6 @@ function headerOpts(primaryColor) {
 }
 
 
-function TeamLogo({ teamId }) {
-  return (
-    <Image
-      source={{ uri: `${BASE_URL}/${teamId}/logo/main` }}
-      style={{ height: 30, width: 120 }}
-      resizeMode="contain"
-    />
-  );
-}
-
 function TeamTabs({ route }) {
   const { teamId, teamName, primaryColor = '#c0392b' } = route.params;
   return (
@@ -60,16 +49,15 @@ function TeamTabs({ route }) {
         tabBarStyle: { borderTopColor: '#e0ddd8', backgroundColor: '#fff' },
         tabBarLabelStyle: { fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 },
         ...headerOpts(primaryColor),
-        headerTitle: () => <TeamLogo teamId={teamId} />,
         tabBarIcon: ({ color, size }) => (
           <Ionicons name={(TAB_ICONS[tabRoute.name] || 'list') + '-outline'} size={size} color={color} />
         ),
       })}
     >
-      <Tab.Screen name="Team" component={TeamHubScreen} initialParams={{ teamId, primaryColor, teamName }} />
+      <Tab.Screen name="Team" component={TeamHubScreen} initialParams={{ teamId, primaryColor, teamName }} options={{ headerTitle: 'TEAM' }} />
       <Tab.Screen name="Lineup" component={LineupScreen} initialParams={{ teamId, primaryColor, teamName }} />
       <Tab.Screen name="Chat" component={ChatScreen} initialParams={{ teamId, primaryColor }} />
-      <Tab.Screen name="Account" component={SettingsScreen} initialParams={{ teamId, primaryColor }} />
+      <Tab.Screen name="Account" component={SettingsScreen} initialParams={{ teamId, primaryColor }} options={{ headerTitle: 'ACCOUNT' }} />
     </Tab.Navigator>
   );
 }

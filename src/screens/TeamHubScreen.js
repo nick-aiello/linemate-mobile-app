@@ -182,21 +182,21 @@ export default function TeamHubScreen({ route, navigation }) {
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={primaryColor} />}
       >
-        {/* Logo */}
-        <Image
-          source={{ uri: `${BASE_URL}/${teamId}/logo/main` }}
-          style={styles.logo}
-          resizeMode="contain"
-        />
-
-        {/* Team name + record */}
-        <View style={styles.teamRow}>
-          <Text style={styles.teamLabel}>{(teamName || 'Team').toUpperCase()}</Text>
-          {record && (
-            <View style={[styles.recordBadge, { backgroundColor: primaryColor + '18' }]}>
-              <Text style={[styles.recordText, { color: primaryColor }]}>{record}</Text>
-            </View>
-          )}
+        {/* Team identity card */}
+        <View style={styles.identityCard}>
+          <Image
+            source={{ uri: `${BASE_URL}/${teamId}/logo/main` }}
+            style={styles.identityLogo}
+            resizeMode="contain"
+          />
+          <View style={styles.identityInfo}>
+            <Text style={styles.identityName}>{(teamName || 'Team').toUpperCase()}</Text>
+            {record && (
+              <View style={[styles.recordBadge, { backgroundColor: primaryColor + '18' }]}>
+                <Text style={[styles.recordText, { color: primaryColor }]}>{record}</Text>
+              </View>
+            )}
+          </View>
         </View>
 
         {/* Next game */}
@@ -399,10 +399,11 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   content: { padding: 16, paddingBottom: 48 },
 
-  logo: { width: '100%', height: 80, marginBottom: 12, marginTop: 4 },
-  teamRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
-  teamLabel: { fontSize: 11, fontWeight: '700', color: '#aaa', letterSpacing: 2 },
-  recordBadge: { borderRadius: 4, paddingHorizontal: 8, paddingVertical: 3 },
+  identityCard: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: '#fff', borderRadius: 4, padding: 14, marginBottom: 16 },
+  identityLogo: { width: 56, height: 56 },
+  identityInfo: { flex: 1, gap: 6 },
+  identityName: { fontSize: 14, fontWeight: '700', color: '#1a1a1a', letterSpacing: 1.5 },
+  recordBadge: { borderRadius: 4, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start' },
   recordText: { fontSize: 11, fontWeight: '700', letterSpacing: 1 },
 
   gameCard: { backgroundColor: '#fff', borderRadius: 4, padding: 16, marginBottom: 16, borderLeftWidth: 4 },
