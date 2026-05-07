@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl, Modal, TextInput, Alert, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../api/client';
+import ScreenHeader from '../components/ScreenHeader';
 
 // ─── Sub Requests ────────────────────────────────────────────────────────────
 
@@ -205,7 +206,7 @@ function EditRow({ player, index, onChange, onRemove, primaryColor }) {
 
 // ─── Main Screen ─────────────────────────────────────────────────────────────
 
-export default function RosterScreen({ route }) {
+export default function RosterScreen({ route, navigation }) {
   const { teamId, primaryColor = '#c0392b' } = route.params;
   const { user } = useAuth();
 
@@ -308,13 +309,19 @@ export default function RosterScreen({ route }) {
     await load();
   }
 
-  if (loading) return <View style={styles.center}><ActivityIndicator color={primaryColor} /></View>;
+  if (loading) return (
+    <View style={{ flex: 1 }}>
+      <ScreenHeader title="ROSTER" primaryColor={primaryColor} onBack={() => navigation.goBack()} />
+      <View style={styles.center}><ActivityIndicator color={primaryColor} /></View>
+    </View>
+  );
 
   const regulars = roster.filter(p => !p.isSub);
   const subs2 = roster.filter(p => p.isSub);
 
   return (
     <View style={styles.container}>
+      <ScreenHeader title="ROSTER" primaryColor={primaryColor} onBack={() => navigation.goBack()} />
       {/* Edit mode */}
       {editing ? (
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>

@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { View, Text, FlatList, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
 import { api } from '../api/client';
+import ScreenHeader from '../components/ScreenHeader';
 
 function StatRow({ player, rank, primaryColor }) {
   const isHot = player.gp >= 3 && player.pts >= player.gp;
@@ -21,7 +22,7 @@ function StatRow({ player, rank, primaryColor }) {
   );
 }
 
-export default function StatsScreen({ route }) {
+export default function StatsScreen({ route, navigation }) {
   const { teamId, primaryColor = '#c0392b' } = route.params;
   const [playerStats, setPlayerStats] = useState([]);
   const [syncedAt, setSyncedAt] = useState(null);
@@ -43,10 +44,17 @@ export default function StatsScreen({ route }) {
 
   useEffect(() => { load(); }, [load]);
 
-  if (loading) return <View style={styles.center}><ActivityIndicator color={primaryColor} /></View>;
+  if (loading) return (
+    <View style={{ flex: 1 }}>
+      <ScreenHeader title="STATS" primaryColor={primaryColor} onBack={() => navigation.goBack()} />
+      <View style={styles.center}><ActivityIndicator color={primaryColor} /></View>
+    </View>
+  );
 
   return (
-    <FlatList
+    <View style={{ flex: 1, backgroundColor: '#f5f2ec' }}>
+      <ScreenHeader title="STATS" primaryColor={primaryColor} onBack={() => navigation.goBack()} />
+      <FlatList
       data={playerStats}
       keyExtractor={(p, i) => p.name + i}
       style={styles.container}
@@ -73,6 +81,7 @@ export default function StatsScreen({ route }) {
         syncedAt ? <Text style={styles.synced}>Last synced {new Date(syncedAt).toLocaleDateString()}</Text> : null
       }
     />
+    </View>
   );
 }
 

@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { View, Text, FlatList, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
 import { api } from '../api/client';
+import ScreenHeader from '../components/ScreenHeader';
 
 function formatDate(dateStr) {
   if (!dateStr) return '';
@@ -84,7 +85,7 @@ function StandingsTable({ standings, teamName }) {
   );
 }
 
-export default function ScheduleScreen({ route }) {
+export default function ScheduleScreen({ route, navigation }) {
   const { teamId, primaryColor = '#c0392b', teamName } = route.params;
   const [schedule, setSchedule] = useState([]);
   const [standings, setStandings] = useState([]);
@@ -108,7 +109,12 @@ export default function ScheduleScreen({ route }) {
 
   useEffect(() => { load(); }, [load]);
 
-  if (loading) return <View style={styles.center}><ActivityIndicator color={primaryColor} /></View>;
+  if (loading) return (
+    <View style={{ flex: 1 }}>
+      <ScreenHeader title="SCHEDULE" primaryColor={primaryColor} onBack={() => navigation.goBack()} />
+      <View style={styles.center}><ActivityIndicator color={primaryColor} /></View>
+    </View>
+  );
 
   const past = schedule.filter(g => g.isPast).slice().reverse();
   const upcoming = schedule.filter(g => !g.isPast);
@@ -138,7 +144,9 @@ export default function ScheduleScreen({ route }) {
   }
 
   return (
-    <FlatList
+    <View style={{ flex: 1, backgroundColor: '#f5f2ec' }}>
+      <ScreenHeader title="SCHEDULE" primaryColor={primaryColor} onBack={() => navigation.goBack()} />
+      <FlatList
       data={items}
       keyExtractor={item => item.key}
       style={styles.container}
@@ -168,6 +176,7 @@ export default function ScheduleScreen({ route }) {
         return null;
       }}
     />
+    </View>
   );
 }
 

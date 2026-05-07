@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl, Modal, ScrollView, Alert } from 'react-native';
 import { api } from '../api/client';
+import ScreenHeader from '../components/ScreenHeader';
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -119,7 +120,7 @@ function LineupDetail({ lineup, primaryColor, onClose, onApply, onDelete }) {
   );
 }
 
-export default function HistoryScreen({ route }) {
+export default function HistoryScreen({ route, navigation }) {
   const { teamId, primaryColor = '#c0392b' } = route.params;
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -209,10 +210,16 @@ export default function HistoryScreen({ route }) {
     items.push({ type: 'entry', key: entry.timestamp, entry });
   }
 
-  if (loading) return <View style={styles.center}><ActivityIndicator color={primaryColor} /></View>;
+  if (loading) return (
+    <View style={{ flex: 1 }}>
+      <ScreenHeader title="HISTORY" primaryColor={primaryColor} onBack={() => navigation.goBack()} />
+      <View style={styles.center}><ActivityIndicator color={primaryColor} /></View>
+    </View>
+  );
 
   return (
     <View style={{ flex: 1 }}>
+      <ScreenHeader title="HISTORY" primaryColor={primaryColor} onBack={() => navigation.goBack()} />
       {detailLoading && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator color={primaryColor} size="large" />

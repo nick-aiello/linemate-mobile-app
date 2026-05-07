@@ -1,4 +1,4 @@
-import { NavigationContainer, useNavigation } from '@react-navigation/native';
+import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
@@ -30,20 +30,11 @@ const TAB_ICONS = {
   Account: 'person',
 };
 
-function BackButton() {
-  const navigation = useNavigation();
-  return (
-    <Ionicons name="chevron-back" size={26} color="#fff" onPress={() => navigation.goBack()} />
-  );
-}
-
 function headerOpts(primaryColor) {
   return {
     headerStyle: { backgroundColor: primaryColor },
     headerTintColor: '#fff',
     headerTitleStyle: { letterSpacing: 2, fontSize: 15, fontWeight: '600' },
-    headerBackVisible: false,
-    headerLeft: () => <BackButton />,
   };
 }
 
@@ -95,11 +86,11 @@ function AppNavigator() {
           <>
             <Stack.Screen name="Teams" component={TeamPickerScreen} />
             <Stack.Screen name="Team" component={TeamTabs} />
-            <Stack.Screen name="TeamHistory" component={HistoryScreen} options={({ route }) => ({ headerShown: true, headerTitle: 'HISTORY', headerLargeTitle: false, ...headerOpts(route.params?.primaryColor) })} />
-            <Stack.Screen name="TeamRoster" component={RosterScreen} options={({ route }) => ({ headerShown: true, headerTitle: 'ROSTER', headerLargeTitle: false, ...headerOpts(route.params?.primaryColor) })} />
-            <Stack.Screen name="TeamSchedule" component={ScheduleScreen} options={({ route }) => ({ headerShown: true, headerTitle: 'SCHEDULE', headerLargeTitle: false, ...headerOpts(route.params?.primaryColor) })} />
-            <Stack.Screen name="TeamStats" component={StatsScreen} options={({ route }) => ({ headerShown: true, headerTitle: 'STATS', headerLargeTitle: false, ...headerOpts(route.params?.primaryColor) })} />
-            <Stack.Screen name="PlayerProfile" component={ProfileScreen} options={({ route }) => ({ headerShown: true, headerTitle: 'PROFILE', headerLargeTitle: false, ...headerOpts(route.params?.primaryColor) })} />
+            <Stack.Screen name="TeamHistory" component={HistoryScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="TeamRoster" component={RosterScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="TeamSchedule" component={ScheduleScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="TeamStats" component={StatsScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="PlayerProfile" component={ProfileScreen} options={{ headerShown: false }} />
             <Stack.Screen
               name="Admin"
               component={AdminScreen}
