@@ -161,7 +161,7 @@ export default function TeamHubScreen({ route, navigation }) {
   async function handleSaveNote() {
     setSavingNote(true);
     try {
-      await api.post('/teams/' + teamId + '/games/' + nextGame.id + '/notes', { note: noteText.trim() });
+      await api.post('/teams/' + teamId + '/game-notes', { date: nextGame.date, note: noteText.trim() });
       setNextGame(g => ({ ...g, notes: noteText.trim() }));
       setShowNoteModal(false);
     } catch {
