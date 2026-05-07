@@ -3,6 +3,8 @@ import { View, Text, Switch, TouchableOpacity, StyleSheet, ScrollView, ActivityI
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../api/client';
 
+const APP_VERSION = '1.0.0';
+
 const DIVISIONS = [
   'Sunday B East','Sunday B West',
   'Sunday C East','Sunday C West',
@@ -17,11 +19,41 @@ const DIVISIONS = [
   'Friday B',
 ];
 
+const POSITIONS = [
+  { key: 'c',  label: 'Center' },
+  { key: 'lw', label: 'Left Wing' },
+  { key: 'rw', label: 'Right Wing' },
+  { key: 'ld', label: 'Left D' },
+  { key: 'rd', label: 'Right D' },
+  { key: 'g',  label: 'Goalie' },
+];
+
+const RSVP_OPTIONS = [
+  { key: 'yes',   label: 'IN',    bg: '#e8f5e9', color: '#2e7d32', border: '#a5d6a7' },
+  { key: 'no',    label: 'OUT',   bg: '#fdecea', color: '#c0392b', border: '#ef9a9a' },
+  { key: 'maybe', label: 'MAYBE', bg: '#fff3e0', color: '#e67e22', border: '#ffcc80' },
+];
+
 function nameColor(name) {
   let h = 0;
   for (let i = 0; i < (name || '').length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffffff;
   const palette = ['#e57373','#f06292','#ba68c8','#7986cb','#4fc3f7','#4db6ac','#aed581','#ff8a65','#a1887f'];
   return palette[h % palette.length];
+}
+
+function fmtDate(dateStr) {
+  if (!dateStr) return '';
+  try {
+    const d = new Date(dateStr + 'T12:00:00');
+    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  } catch(e) { return dateStr; }
+}
+
+function fmtTime(timeStr) {
+  if (!timeStr) return '';
+  const [h, m] = timeStr.split(':').map(Number);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  return (h % 12 || 12) + ':' + String(m).padStart(2, '0') + ' ' + ampm;
 }
 
 function SectionHeader({ label }) {
@@ -61,9 +93,16 @@ export default function SettingsScreen({ route, navigation }) {
 
   const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
 
-  // display name for avatar
   const [firstName] = useState(user?.firstName || '');
   const [lastName] = useState(user?.lastName || '');
+
+  // ── Player data ────────────────────────────────────────────────────────────
+  const [linkedPlayer, setLinkedPlayer] = useState(null); // { name, num }
+  const [nextGame, setNextGame] = useState(null);
+  const [rsvpStatus, setRsvpStatus] = useState(null);
+  const [rsvpSaving, setRsvpSaving] = useState(false);
+  const [preferredPosition, setPreferredPosition] = useState(null);
+  const [savingPosition, setSavingPosition] = useState(false);
 
   // ── Team settings (admin only) ──────────────────────────────────────────────
   const [chillerTeamId, setChillerTeamId] = useState('');
@@ -76,14 +115,31 @@ export default function SettingsScreen({ route, navigation }) {
   const [loadingBrand, setLoadingBrand] = useState(isAdmin);
   const [savingBrand, setSavingBrand] = useState(false);
 
-  // Notifications
+  // ── Notifications ─────────────────────────────────────────────────────────
   const [prefs, setPrefs] = useState(null);
   const [savingPrefs, setSavingPrefs] = useState(false);
 
-  // Sync
+  // ── Sync ──────────────────────────────────────────────────────────────────
   const [syncing, setSyncing] = useState(false);
 
   const loadAll = useCallback(async () => {
+    // Load player data from /me/profile
+    api.myProfile().then(async data => {
+      const teamData = (data?.teams || []).find(t => t.id === teamId);
+      if (teamData) {
+        setNextGame(teamData.nextGame || null);
+        if (teamData.linkedPlayer) {
+          setLinkedPlayer({ name: teamData.linkedPlayer.name, num: teamData.linkedPlayer.num });
+          setRsvpStatus(teamData.linkedPlayer.rsvp || null);
+          // Load preferred position from player profile
+          try {
+            const prof = await api.getPlayerProfile(teamId, teamData.linkedPlayer.name);
+            setPreferredPosition(prof?.preferredPosition || null);
+          } catch(e) {}
+        }
+      }
+    }).catch(() => {});
+
     if (isAdmin) {
       setLoadingBrand(true);
       api.brand(teamId).then(b => {
@@ -103,7 +159,47 @@ export default function SettingsScreen({ route, navigation }) {
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
-  // ── Notifications ─────────────────────────────────────────────────────────────
+  // ── RSVP ──────────────────────────────────────────────────────────────────
+  async function handleRsvp(status) {
+    if (!linkedPlayer) return;
+    const prev = rsvpStatus;
+    const next = status === rsvpStatus ? null : status; // tap same = clear
+    setRsvpStatus(next);
+    setRsvpSaving(true);
+    try {
+      await api.setAvailability(teamId, null, next);
+    } catch(e) {
+      setRsvpStatus(prev);
+      Alert.alert('Error', 'Could not update RSVP.');
+    } finally {
+      setRsvpSaving(false);
+    }
+  }
+
+  // ── Preferred position ───────────────────────────────────────────────────
+  function pickPosition() {
+    const options = ['— None —', ...POSITIONS.map(p => p.label), 'Cancel'];
+    ActionSheetIOS.showActionSheetWithOptions(
+      { title: 'Preferred Position', options, cancelButtonIndex: options.length - 1 },
+      async i => {
+        if (i === options.length - 1) return; // cancel
+        const pos = i === 0 ? null : POSITIONS[i - 1].key;
+        if (pos === preferredPosition) return;
+        setPreferredPosition(pos);
+        setSavingPosition(true);
+        try {
+          await api.savePlayerProfile(teamId, linkedPlayer.name, { preferredPosition: pos });
+        } catch(e) {
+          setPreferredPosition(preferredPosition);
+          Alert.alert('Error', 'Could not save position.');
+        } finally {
+          setSavingPosition(false);
+        }
+      }
+    );
+  }
+
+  // ── Notifications ─────────────────────────────────────────────────────────
   async function updatePref(key, value) {
     const updated = { ...prefs, [key]: value };
     setPrefs(updated);
@@ -112,11 +208,12 @@ export default function SettingsScreen({ route, navigation }) {
       lineupSet: updated.lineupSet !== false,
       gameReminder: updated.gameReminder !== false,
       chatMessages: updated.chatMessages !== false,
+      mentions: updated.mentions !== false,
     }).catch(() => {});
     setSavingPrefs(false);
   }
 
-  // ── Team settings (admin only) ────────────────────────────────────────────────
+  // ── Team settings (admin only) ────────────────────────────────────────────
   function pickDivision() {
     const options = ['— None —', ...DIVISIONS, 'Cancel'];
     ActionSheetIOS.showActionSheetWithOptions(
@@ -186,6 +283,7 @@ export default function SettingsScreen({ route, navigation }) {
   const displayName = [firstName, lastName].filter(Boolean).join(' ') || user?.email || '';
   const initials = displayName.replace(/\s+/g, ' ').trim().split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
   const avatarColor = nameColor(displayName || user?.email || '');
+  const positionLabel = preferredPosition ? (POSITIONS.find(p => p.key === preferredPosition)?.label || null) : null;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -196,8 +294,18 @@ export default function SettingsScreen({ route, navigation }) {
           <Text style={styles.avatarText}>{initials}</Text>
         </View>
         <View style={styles.profileCardMeta}>
-          <Text style={styles.profileCardName}>{displayName || 'Set your name'}</Text>
+          <View style={styles.profileCardNameRow}>
+            <Text style={styles.profileCardName}>{displayName || 'Set your name'}</Text>
+            {linkedPlayer?.num ? (
+              <View style={[styles.jerseyBadge, { backgroundColor: primaryColor + '18', borderColor: primaryColor + '44' }]}>
+                <Text style={[styles.jerseyBadgeText, { color: primaryColor }]}>#{linkedPlayer.num}</Text>
+              </View>
+            ) : null}
+          </View>
           <Text style={styles.profileCardEmail}>{user?.email || ''}</Text>
+          {positionLabel ? (
+            <Text style={styles.positionLabel}>{positionLabel}</Text>
+          ) : null}
         </View>
         <TouchableOpacity
           style={[styles.editProfileBtn, { borderColor: primaryColor }]}
@@ -207,6 +315,62 @@ export default function SettingsScreen({ route, navigation }) {
           <Text style={[styles.editProfileBtnText, { color: primaryColor }]}>Edit Profile</Text>
         </TouchableOpacity>
       </View>
+
+      {/* ── RSVP widget ── */}
+      {nextGame && (
+        <>
+          <SectionHeader label="Next Game" />
+          <View style={styles.card}>
+            <View style={styles.rsvpGameRow}>
+              <Text style={styles.rsvpOpponent}>{nextGame.isHome === false ? '@ ' : 'vs. '}{nextGame.opponent}</Text>
+              <Text style={styles.rsvpGameDate}>{fmtDate(nextGame.date)}{nextGame.time ? '  ·  ' + fmtTime(nextGame.time) : ''}</Text>
+              {nextGame.rink ? <Text style={styles.rsvpRink}>{nextGame.rink}</Text> : null}
+            </View>
+            {linkedPlayer ? (
+              <View style={styles.rsvpBtnRow}>
+                {RSVP_OPTIONS.map(opt => {
+                  const active = rsvpStatus === opt.key;
+                  return (
+                    <TouchableOpacity
+                      key={opt.key}
+                      style={[styles.rsvpBtn, active && { backgroundColor: opt.bg, borderColor: opt.border }]}
+                      onPress={() => handleRsvp(opt.key)}
+                      disabled={rsvpSaving}
+                      activeOpacity={0.75}
+                    >
+                      <Text style={[styles.rsvpBtnText, active && { color: opt.color }]}>{opt.label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+                {rsvpSaving && <ActivityIndicator size="small" color={primaryColor} style={{ marginLeft: 8 }} />}
+              </View>
+            ) : (
+              <Text style={styles.hint}>Link your player profile to RSVP</Text>
+            )}
+          </View>
+        </>
+      )}
+
+      {/* ── Player settings ── */}
+      {linkedPlayer && (
+        <>
+          <SectionHeader label="Player" />
+          <View style={styles.card}>
+            <TouchableOpacity onPress={Platform.OS === 'ios' ? pickPosition : undefined} disabled={savingPosition}>
+              <FieldRow label="Preferred Position">
+                <View style={styles.divisionBtn}>
+                  <Text style={[styles.divisionText, !preferredPosition && { color: '#bbb' }]} numberOfLines={1}>
+                    {positionLabel || 'Not set'}
+                  </Text>
+                  {savingPosition
+                    ? <ActivityIndicator size="small" color={primaryColor} />
+                    : <Text style={styles.chevron}>›</Text>}
+                </View>
+              </FieldRow>
+            </TouchableOpacity>
+          </View>
+        </>
+      )}
 
       {/* ── Team Settings (admin only) ── */}
       {isAdmin && (
@@ -332,13 +496,17 @@ export default function SettingsScreen({ route, navigation }) {
             <FieldRow label="Chat messages">
               <Switch value={!!prefs.chatMessages} onValueChange={v => updatePref('chatMessages', v)} trackColor={{ true: primaryColor }} />
             </FieldRow>
+            <Divider />
+            <FieldRow label="Mentions">
+              <Switch value={!!prefs.mentions} onValueChange={v => updatePref('mentions', v)} trackColor={{ true: primaryColor }} />
+            </FieldRow>
           </>
         ) : (
           <ActivityIndicator color={primaryColor} />
         )}
       </View>
 
-      {/* ── Data + Invite (admin only) ── */}
+      {/* ── Team (admin only) ── */}
       {isAdmin && (
         <>
           <SectionHeader label="Team" />
@@ -363,9 +531,11 @@ export default function SettingsScreen({ route, navigation }) {
       )}
 
       {/* ── Sign Out ── */}
-      <TouchableOpacity style={styles.signOutBtn} onPress={handleLogout}>
+      <TouchableOpacity style={styles.signOutBtn} onPress={handleLogout} activeOpacity={0.6}>
         <Text style={styles.signOutText}>Sign Out</Text>
       </TouchableOpacity>
+
+      <Text style={styles.versionText}>Linemate · v{APP_VERSION}</Text>
 
     </ScrollView>
   );
@@ -392,8 +562,12 @@ const styles = StyleSheet.create({
   avatar: { width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   avatarText: { color: '#fff', fontSize: 18, fontWeight: '700' },
   profileCardMeta: { flex: 1 },
+  profileCardNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   profileCardName: { fontSize: 15, fontWeight: '700', color: '#1a1a1a' },
+  jerseyBadge: { borderWidth: 1, borderRadius: 4, paddingHorizontal: 5, paddingVertical: 1 },
+  jerseyBadgeText: { fontSize: 11, fontWeight: '700' },
   profileCardEmail: { fontSize: 12, color: '#aaa', marginTop: 2 },
+  positionLabel: { fontSize: 11, color: '#888', marginTop: 3, textTransform: 'uppercase', letterSpacing: 0.5 },
   editProfileBtn: {
     borderWidth: 1.5,
     borderRadius: 8,
@@ -402,11 +576,27 @@ const styles = StyleSheet.create({
   },
   editProfileBtnText: { fontSize: 13, fontWeight: '700' },
 
+  // RSVP
+  rsvpGameRow: { marginBottom: 12 },
+  rsvpOpponent: { fontSize: 15, fontWeight: '700', color: '#1a1a1a', marginBottom: 2 },
+  rsvpGameDate: { fontSize: 12, color: '#888' },
+  rsvpRink: { fontSize: 11, color: '#bbb', marginTop: 2 },
+  rsvpBtnRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  rsvpBtn: {
+    flex: 1,
+    borderWidth: 1.5,
+    borderColor: '#e0ddd8',
+    borderRadius: 6,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  rsvpBtnText: { fontSize: 12, fontWeight: '700', color: '#aaa', letterSpacing: 0.5 },
+
   // misc
   label: { fontSize: 10, color: '#aaa', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 },
+  hint: { fontSize: 11, color: '#bbb', marginBottom: 6 },
 
   // Team settings
-  hint: { fontSize: 11, color: '#bbb', marginBottom: 6 },
   configuredRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
   configuredDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#2e7d32' },
   configuredText: { fontSize: 12, color: '#2e7d32', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
@@ -439,6 +629,8 @@ const styles = StyleSheet.create({
   saveBtnText: { color: '#fff', fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
   syncArrow: { fontSize: 22, fontWeight: '700' },
 
-  signOutBtn: { marginTop: 20, backgroundColor: '#fff', borderRadius: 4, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: '#e0ddd8' },
+  signOutBtn: { marginTop: 28, paddingVertical: 14, alignItems: 'center' },
   signOutText: { color: '#c0392b', fontSize: 13, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
+
+  versionText: { textAlign: 'center', fontSize: 11, color: '#ccc', marginTop: 8, marginBottom: 8 },
 });
