@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { View, Text, FlatList, TextInput, TouchableOpacity, TouchableWithoutFeedback, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Modal, Pressable, ScrollView, Image, Alert, ActionSheetIOS } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../api/client';
 
