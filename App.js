@@ -2,8 +2,8 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { ActivityIndicator, Image, Text, View } from 'react-native';
-import { BASE_URL } from './src/api/client';
+import { ActivityIndicator, View } from 'react-native';
+import BrandHeader from './src/components/BrandHeader';
 import { AuthProvider, useAuth } from './src/hooks/useAuth';
 import { usePushNotifications } from './src/hooks/usePushNotifications';
 
@@ -40,21 +40,6 @@ function headerOpts(primaryColor) {
 }
 
 
-function TeamHeader({ teamId, teamName }) {
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-      <Image
-        source={{ uri: `${BASE_URL}/${teamId}/logo/main` }}
-        style={{ width: 28, height: 28 }}
-        resizeMode="contain"
-      />
-      <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700', letterSpacing: 1.5 }}>
-        {(teamName || '').toUpperCase()}
-      </Text>
-    </View>
-  );
-}
-
 function TeamTabs({ route }) {
   const { teamId, teamName, primaryColor = '#c0392b' } = route.params;
   return (
@@ -64,8 +49,7 @@ function TeamTabs({ route }) {
         tabBarInactiveTintColor: '#999',
         tabBarStyle: { borderTopColor: '#e0ddd8', backgroundColor: '#fff' },
         tabBarLabelStyle: { fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 },
-        ...headerOpts(primaryColor),
-        headerTitle: () => <TeamHeader teamId={teamId} teamName={teamName} />,
+        header: () => <BrandHeader teamId={teamId} teamName={teamName} primaryColor={primaryColor} />,
         tabBarIcon: ({ color, size }) => (
           <Ionicons name={(TAB_ICONS[tabRoute.name] || 'list') + '-outline'} size={size} color={color} />
         ),
