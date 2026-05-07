@@ -2,7 +2,7 @@ import { NavigationContainer, useNavigation } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { ActivityIndicator, Pressable, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import { AuthProvider, useAuth } from './src/hooks/useAuth';
 import { usePushNotifications } from './src/hooks/usePushNotifications';
 
@@ -33,9 +33,7 @@ const TAB_ICONS = {
 function BackButton() {
   const navigation = useNavigation();
   return (
-    <Pressable onPress={() => navigation.goBack()} hitSlop={10}>
-      <Ionicons name="chevron-back" size={26} color="#fff" />
-    </Pressable>
+    <Ionicons name="chevron-back" size={26} color="#fff" onPress={() => navigation.goBack()} />
   );
 }
 
