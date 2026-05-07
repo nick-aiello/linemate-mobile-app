@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl, ActivityIndicator, Alert, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl, ActivityIndicator, Alert, Modal, TextInput, KeyboardAvoidingView, Platform, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../hooks/useAuth';
-import { api } from '../api/client';
+import { api, BASE_URL } from '../api/client';
 
 const SECTIONS = [
   { name: 'TeamSchedule', label: 'Schedule', sub: 'Upcoming and past games',   icon: 'calendar-outline' },
@@ -182,6 +182,13 @@ export default function TeamHubScreen({ route, navigation }) {
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={primaryColor} />}
       >
+        {/* Logo */}
+        <Image
+          source={{ uri: `${BASE_URL}/${teamId}/logo/main` }}
+          style={styles.logo}
+          resizeMode="contain"
+        />
+
         {/* Team name + record */}
         <View style={styles.teamRow}>
           <Text style={styles.teamLabel}>{(teamName || 'Team').toUpperCase()}</Text>
@@ -392,7 +399,8 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   content: { padding: 16, paddingBottom: 48 },
 
-  teamRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12, marginTop: 4 },
+  logo: { width: '100%', height: 80, marginBottom: 12, marginTop: 4 },
+  teamRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   teamLabel: { fontSize: 11, fontWeight: '700', color: '#aaa', letterSpacing: 2 },
   recordBadge: { borderRadius: 4, paddingHorizontal: 8, paddingVertical: 3 },
   recordText: { fontSize: 11, fontWeight: '700', letterSpacing: 1 },

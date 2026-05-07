@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
-import { api } from '../api/client';
+import { View, Text, TouchableOpacity, FlatList, StyleSheet, ActivityIndicator, Image } from 'react-native';
+import { api, BASE_URL } from '../api/client';
 import { useAuth } from '../hooks/useAuth';
 
 function isAdmin(user) {
@@ -39,8 +39,15 @@ export default function TeamPickerScreen({ navigation }) {
             style={[styles.card, { borderLeftColor: item.primaryColor || '#c0392b' }]}
             onPress={() => navigation.navigate('Team', { teamId: item.id, teamName: item.name, primaryColor: item.primaryColor })}
           >
-            <Text style={styles.teamName}>{item.name}</Text>
-            {item.division && <Text style={styles.division}>{item.division}</Text>}
+            <Image
+              source={{ uri: `${BASE_URL}/${item.id}/logo/main` }}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+            <View style={styles.cardText}>
+              <Text style={styles.teamName}>{item.name}</Text>
+              {item.division && <Text style={styles.division}>{item.division}</Text>}
+            </View>
           </TouchableOpacity>
         )}
         contentContainerStyle={styles.list}
@@ -57,7 +64,9 @@ const styles = StyleSheet.create({
   adminBtn: { backgroundColor: '#1a1a1a', borderRadius: 4, paddingHorizontal: 12, paddingVertical: 6 },
   adminBtnText: { fontSize: 11, fontWeight: '700', color: '#fff', textTransform: 'uppercase', letterSpacing: 1 },
   list: { padding: 16, paddingTop: 0 },
-  card: { backgroundColor: '#fff', borderRadius: 4, padding: 16, marginBottom: 8, borderLeftWidth: 4 },
+  card: { backgroundColor: '#fff', borderRadius: 4, padding: 16, marginBottom: 8, borderLeftWidth: 4, flexDirection: 'row', alignItems: 'center', gap: 14 },
+  logo: { width: 48, height: 48 },
+  cardText: { flex: 1 },
   teamName: { fontSize: 16, fontWeight: '700', color: '#1a1a1a', textTransform: 'uppercase', letterSpacing: 1 },
   division: { fontSize: 12, color: '#888', marginTop: 3, textTransform: 'uppercase', letterSpacing: 0.5 },
 });
