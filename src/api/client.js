@@ -67,6 +67,7 @@ export const api = {
   deleteMessage: (channelId, msgId) => request('DELETE', '/channels/' + channelId + '/messages/' + msgId),
   reactChannelMessage: (channelId, msgId, emoji) => request('POST', '/channels/' + channelId + '/messages/' + msgId + '/react', { emoji }),
   markRead: (channelId) => request('POST', '/channels/' + channelId + '/read'),
+  getThread: (channelId, msgId) => request('GET', '/channels/' + channelId + '/thread/' + msgId),
   teamMembers: (teamId) => request('GET', '/teams/' + teamId + '/members'),
   dmOpen: (teamId, targetUserId) => request('POST', '/teams/' + teamId + '/dm/open', { targetUserId }),
 

@@ -20,6 +20,7 @@ import RosterScreen from './src/screens/RosterScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import AdminScreen from './src/screens/AdminScreen';
+import ThreadScreen from './src/screens/ThreadScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -88,6 +89,7 @@ function AppNavigator() {
             <Stack.Screen name="TeamSchedule" component={ScheduleScreen} options={{ headerShown: false }} />
             <Stack.Screen name="TeamStats" component={StatsScreen} options={{ headerShown: false }} />
             <Stack.Screen name="PlayerProfile" component={ProfileScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="Thread" component={ThreadScreen} options={{ headerShown: false }} />
             <Stack.Screen
               name="Admin"
               component={AdminScreen}

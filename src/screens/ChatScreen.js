@@ -112,7 +112,7 @@ function ReplyQuote({ snippet, authorName, primaryColor }) {
   );
 }
 
-function MessageRow({ msg, isMe, isDivision, primaryColor, onLongPress, onReact }) {
+function MessageRow({ msg, isMe, isDivision, primaryColor, onLongPress, onReact, onOpenThread }) {
   const avatarColor = isMe ? primaryColor : (msg.primaryColor || nameColor(msg.displayName));
   const avatarUri = msg.avatarUrl || null;
   const isDeleted = msg.deleted;
@@ -134,13 +134,6 @@ function MessageRow({ msg, isMe, isDivision, primaryColor, onLongPress, onReact 
             )}
             <Text style={styles.msgTime}>{formatMsgTime(msg.createdAt)}</Text>
           </View>
-          {msg.replyToSnippet && !isDeleted && (
-            <ReplyQuote
-              snippet={msg.replyToSnippet}
-              authorName={msg.replyToAuthor || ''}
-              primaryColor={primaryColor}
-            />
-          )}
           {isDeleted ? (
             <Text style={styles.deletedText}>Message deleted</Text>
           ) : (
@@ -162,13 +155,24 @@ function MessageRow({ msg, isMe, isDivision, primaryColor, onLongPress, onReact 
               ))}
             </View>
           )}
+          {!isDeleted && msg.replyCount > 0 && (
+            <TouchableOpacity onPress={() => onOpenThread(msg)} style={styles.threadLink}>
+              <Ionicons name="chatbubbles-outline" size={13} color={primaryColor} />
+              <Text style={[styles.threadLinkText, { color: primaryColor }]}>
+                {msg.replyCount} {msg.replyCount === 1 ? 'reply' : 'replies'}
+              </Text>
+              {msg.lastReplyAt && (
+                <Text style={styles.threadLinkTime}>· last {timeAgo(msg.lastReplyAt)}</Text>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     </Pressable>
   );
 }
 
-export default function ChatScreen({ route }) {
+export default function ChatScreen({ route, navigation }) {
   const { teamId, primaryColor = '#c0392b' } = route.params;
   const { user } = useAuth();
 
@@ -181,7 +185,6 @@ export default function ChatScreen({ route }) {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [emojiTarget, setEmojiTarget] = useState(null);
-  const [replyTo, setReplyTo] = useState(null);
   const [editingMsg, setEditingMsg] = useState(null);
   const [showPeoplePicker, setShowPeoplePicker] = useState(false);
   const [members, setMembers] = useState([]);
@@ -223,7 +226,6 @@ export default function ChatScreen({ route }) {
   function openChannel(channel) {
     setActiveChannel(channel);
     setMessages([]);
-    setReplyTo(null);
     setEditingMsg(null);
     setText('');
     loadMessages(channel.id);
@@ -234,7 +236,6 @@ export default function ChatScreen({ route }) {
     clearInterval(pollRef.current);
     setActiveChannel(null);
     setMessages([]);
-    setReplyTo(null);
     setEditingMsg(null);
     setText('');
     loadChannels();
@@ -257,21 +258,18 @@ export default function ChatScreen({ route }) {
     if (!content || sending || !activeChannel) return;
     setSending(true);
     setText('');
-    const currentReply = replyTo;
     const currentEdit = editingMsg;
-    setReplyTo(null);
     setEditingMsg(null);
     try {
       if (currentEdit) {
         await api.editMessage(activeChannel.id, currentEdit.id, content);
       } else {
-        await api.sendChannelMessage(activeChannel.id, content, currentReply?.id);
+        await api.sendChannelMessage(activeChannel.id, content);
       }
       const data = await api.channelMessages(activeChannel.id);
       setMessages(data.messages || []);
     } catch(e) {
       setText(content);
-      if (currentReply) setReplyTo(currentReply);
       if (currentEdit) setEditingMsg(currentEdit);
       Alert.alert('Error', e?.message || 'Failed to send');
     } finally {
@@ -297,22 +295,23 @@ export default function ChatScreen({ route }) {
     }
   }
 
+  function openThread(msg) {
+    if (!activeChannel) return;
+    navigation.navigate('Thread', { channelId: activeChannel.id, messageId: msg.id, primaryColor });
+  }
+
   function handleLongPress(msg) {
     const isMe = msg.userId === user?.id;
-    const options = ['Add Reaction', 'Reply', ...(isMe ? ['Edit', 'Delete'] : []), 'Cancel'];
+    const options = ['Add Reaction', 'Reply in thread', ...(isMe ? ['Edit', 'Delete'] : []), 'Cancel'];
     const cancelIndex = options.length - 1;
     const destructiveIndex = isMe ? options.indexOf('Delete') : -1;
 
     const onSelect = (action) => {
       if (action === 'Add Reaction') {
         setEmojiTarget(msg);
-      } else if (action === 'Reply') {
-        setEditingMsg(null);
-        setText('');
-        setReplyTo(msg);
-        setTimeout(() => inputRef.current?.focus(), 100);
+      } else if (action === 'Reply in thread') {
+        openThread(msg);
       } else if (action === 'Edit') {
-        setReplyTo(null);
         setEditingMsg(msg);
         setText(msg.content || '');
         setTimeout(() => inputRef.current?.focus(), 100);
@@ -341,7 +340,6 @@ export default function ChatScreen({ route }) {
   }
 
   function cancelReplyOrEdit() {
-    setReplyTo(null);
     setEditingMsg(null);
     setText('');
   }
@@ -397,7 +395,7 @@ export default function ChatScreen({ route }) {
         lastUserId = null;
       }
       // Don't compact if this message has a reply quote — always show full row
-      const compact = msg.userId === lastUserId && !msg.replyToSnippet && !msg.deleted;
+      const compact = msg.userId === lastUserId && !msg.replyCount && !msg.deleted;
       items.push({ type: 'msg', key: String(msg.id), msg, compact });
       lastUserId = msg.userId;
     }
@@ -586,8 +584,6 @@ export default function ChatScreen({ route }) {
 
   const inputPlaceholder = editingMsg
     ? 'Edit message…'
-    : replyTo
-    ? `Reply to ${replyTo.displayName}…`
     : isDM ? 'Message ' + activeChannel.name
     : 'Message #' + activeChannel.name;
 
@@ -690,20 +686,17 @@ export default function ChatScreen({ route }) {
                   primaryColor={primaryColor}
                   onLongPress={handleLongPress}
                   onReact={handleReact}
+                  onOpenThread={openThread}
                 />
               );
             }}
           />
         )}
 
-        {(replyTo || editingMsg) && (
+        {editingMsg && (
           <View style={[styles.replyPreviewBar, { borderTopColor: primaryColor }]}>
             <View style={[styles.replyPreviewAccent, { backgroundColor: primaryColor }]} />
-            <Text style={styles.replyPreviewText} numberOfLines={1}>
-              {editingMsg
-                ? 'Editing message'
-                : `Reply to ${replyTo.displayName}: ${(replyTo.content || '').slice(0, 80)}`}
-            </Text>
+            <Text style={styles.replyPreviewText} numberOfLines={1}>Editing message</Text>
             <TouchableOpacity onPress={cancelReplyOrEdit} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Text style={styles.replyPreviewCancel}>✕</Text>
             </TouchableOpacity>
@@ -849,6 +842,10 @@ const styles = StyleSheet.create({
   reactions: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 5, gap: 4 },
   reactionPill: { backgroundColor: '#f5f5f5', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: '#e8e8e8' },
   reactionText: { fontSize: 13 },
+
+  threadLink: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6, paddingVertical: 4 },
+  threadLinkText: { fontSize: 12, fontWeight: '700' },
+  threadLinkTime: { fontSize: 11, color: '#888' },
 
   inputBar: { flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 10, paddingBottom: 12, backgroundColor: '#fff', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#e0e0e0', alignItems: 'flex-end', gap: 8 },
   plusBtn: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#f0f0f0', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginBottom: 3 },
