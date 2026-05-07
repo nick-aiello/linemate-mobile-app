@@ -62,7 +62,7 @@ export const api = {
   channels: (teamId) => request('GET', '/teams/' + teamId + '/channels'),
   createChannel: (teamId, name) => request('POST', '/teams/' + teamId + '/channels', { name }),
   channelMessages: (channelId, beforeId) => request('GET', '/channels/' + channelId + '/messages' + (beforeId ? '?before=' + beforeId : '')),
-  sendChannelMessage: (channelId, content, replyToId) => request('POST', '/channels/' + channelId + '/messages', { content, ...(replyToId ? { replyToId } : {}) }),
+  sendChannelMessage: (channelId, content, replyToId, mentions) => request('POST', '/channels/' + channelId + '/messages', { content, ...(replyToId ? { replyToId } : {}), ...(mentions?.length ? { mentions } : {}) }),
   editMessage: (channelId, msgId, content) => request('PATCH', '/channels/' + channelId + '/messages/' + msgId, { content }),
   deleteMessage: (channelId, msgId) => request('DELETE', '/channels/' + channelId + '/messages/' + msgId),
   reactChannelMessage: (channelId, msgId, emoji) => request('POST', '/channels/' + channelId + '/messages/' + msgId + '/react', { emoji }),

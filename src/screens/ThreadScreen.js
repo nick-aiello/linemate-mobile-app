@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../api/client';
 import ScreenHeader from '../components/ScreenHeader';
+import { detectMentionQuery, applyMention, activeMentionIds, renderMessageWithMentions, MentionPicker } from '../components/MentionUtils';
 
 const QUICK_EMOJIS = ['👍', '🔥', '😂', '💪', '👏', '🎉', '🏒', '👎'];
 
@@ -47,7 +48,7 @@ function ThreadMessage({ msg, isMe, isParent, primaryColor, onLongPress, onReact
             <Text style={styles.deletedText}>Message deleted</Text>
           ) : (
             <Text style={styles.msgText}>
-              {msg.content}
+              {renderMessageWithMentions(msg.content, primaryColor)}
               {msg.edited ? <Text style={styles.editedLabel}> (edited)</Text> : null}
             </Text>
           )}
@@ -71,7 +72,7 @@ function ThreadMessage({ msg, isMe, isParent, primaryColor, onLongPress, onReact
 }
 
 export default function ThreadScreen({ route, navigation }) {
-  const { channelId, messageId, primaryColor = '#c0392b' } = route.params;
+  const { channelId, messageId, primaryColor = '#c0392b', teamId } = route.params;
   const { user } = useAuth();
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -79,6 +80,9 @@ export default function ThreadScreen({ route, navigation }) {
   const [sending, setSending] = useState(false);
   const [editingMsg, setEditingMsg] = useState(null);
   const [emojiTarget, setEmojiTarget] = useState(null);
+  const [members, setMembers] = useState([]);
+  const [trackedMentions, setTrackedMentions] = useState([]);
+  const [mentionQuery, setMentionQuery] = useState(null);
   const inputRef = useRef();
   const listRef = useRef();
 
@@ -95,24 +99,46 @@ export default function ThreadScreen({ route, navigation }) {
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    if (teamId) api.teamMembers(teamId).then(setMembers).catch(() => {});
+  }, [teamId]);
+
   // Poll for new replies
   useEffect(() => {
     const id = setInterval(load, 4000);
     return () => clearInterval(id);
   }, [load]);
 
+  function handleTextChange(newText) {
+    setText(newText);
+    setMentionQuery(detectMentionQuery(newText));
+  }
+
+  function handleMentionPick(member) {
+    const newText = applyMention(text, member);
+    setText(newText);
+    const id = String(member.id);
+    const name = member.name || ((member.firstName || '') + ' ' + (member.lastName || '')).trim();
+    setTrackedMentions(prev => prev.find(m => m.id === id) ? prev : [...prev, { id, name }]);
+    setMentionQuery(null);
+    inputRef.current?.focus();
+  }
+
   async function handleSend() {
     const content = text.trim();
     if (!content || sending) return;
     setSending(true);
     setText('');
+    setMentionQuery(null);
     const currentEdit = editingMsg;
+    const mentionIds = activeMentionIds(content, trackedMentions);
     setEditingMsg(null);
+    setTrackedMentions([]);
     try {
       if (currentEdit) {
         await api.editMessage(channelId, currentEdit.id, content);
       } else {
-        await api.sendChannelMessage(channelId, content, messageId);
+        await api.sendChannelMessage(channelId, content, messageId, mentionIds);
       }
       await load();
       setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
@@ -220,6 +246,15 @@ export default function ThreadScreen({ route, navigation }) {
           </View>
         )}
 
+        {mentionQuery !== null && (
+          <MentionPicker
+            members={members}
+            query={mentionQuery}
+            onPick={handleMentionPick}
+            primaryColor={primaryColor}
+          />
+        )}
+
         {editingMsg && (
           <View style={styles.editingBar}>
             <Text style={styles.editingText}>Editing message</Text>
@@ -236,7 +271,7 @@ export default function ThreadScreen({ route, navigation }) {
             placeholder="Reply…"
             placeholderTextColor="#aaa"
             value={text}
-            onChangeText={setText}
+            onChangeText={handleTextChange}
             multiline
           />
           <TouchableOpacity

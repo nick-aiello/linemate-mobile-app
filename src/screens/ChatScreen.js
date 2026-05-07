@@ -3,6 +3,7 @@ import { View, Text, FlatList, TextInput, TouchableOpacity, TouchableWithoutFeed
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../api/client';
+import { detectMentionQuery, applyMention, activeMentionIds, renderMessageWithMentions, MentionPicker } from '../components/MentionUtils';
 
 const QUICK_EMOJIS = ['👍', '🔥', '😂', '💪', '👏', '🎉', '🏒', '👎'];
 
@@ -139,7 +140,7 @@ function MessageRow({ msg, isMe, isDivision, primaryColor, onLongPress, onReact,
             <Text style={styles.deletedText}>Message deleted</Text>
           ) : (
             <Text style={styles.msgText}>
-              {msg.content}
+              {renderMessageWithMentions(msg.content, primaryColor)}
               {msg.edited ? <Text style={styles.editedLabel}> (edited)</Text> : null}
             </Text>
           )}
@@ -190,6 +191,8 @@ export default function ChatScreen({ route, navigation }) {
   const [showPeoplePicker, setShowPeoplePicker] = useState(false);
   const [members, setMembers] = useState([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
+  const [trackedMentions, setTrackedMentions] = useState([]);
+  const [mentionQuery, setMentionQuery] = useState(null);
   const [collapsed, setCollapsed] = useState({ channels: false, games: false, league: false, division: false, dms: false });
   const [showNewChannel, setShowNewChannel] = useState(false);
   const [newChannelName, setNewChannelName] = useState('');
@@ -229,8 +232,14 @@ export default function ChatScreen({ route, navigation }) {
     setMessages([]);
     setEditingMsg(null);
     setText('');
+    setTrackedMentions([]);
+    setMentionQuery(null);
     loadMessages(channel.id);
     api.markRead(channel.id).catch(() => {});
+    // Preload members for @ mention typeahead
+    if (!members.length) {
+      api.teamMembers(teamId).then(setMembers).catch(() => {});
+    }
   }
 
   function closeChannel() {
@@ -254,18 +263,36 @@ export default function ChatScreen({ route, navigation }) {
     return () => clearInterval(pollRef.current);
   }, [activeChannel]);
 
+  function handleTextChange(newText) {
+    setText(newText);
+    setMentionQuery(detectMentionQuery(newText));
+  }
+
+  function handleMentionPick(member) {
+    const newText = applyMention(text, member);
+    setText(newText);
+    const id = String(member.id);
+    const name = member.name || ((member.firstName || '') + ' ' + (member.lastName || '')).trim();
+    setTrackedMentions(prev => prev.find(m => m.id === id) ? prev : [...prev, { id, name }]);
+    setMentionQuery(null);
+    inputRef.current?.focus();
+  }
+
   async function handleSend() {
     const content = text.trim();
     if (!content || sending || !activeChannel) return;
     setSending(true);
     setText('');
+    setMentionQuery(null);
     const currentEdit = editingMsg;
+    const mentionIds = activeMentionIds(content, trackedMentions);
     setEditingMsg(null);
+    setTrackedMentions([]);
     try {
       if (currentEdit) {
         await api.editMessage(activeChannel.id, currentEdit.id, content);
       } else {
-        await api.sendChannelMessage(activeChannel.id, content);
+        await api.sendChannelMessage(activeChannel.id, content, undefined, mentionIds);
       }
       const data = await api.channelMessages(activeChannel.id);
       setMessages(data.messages || []);
@@ -298,7 +325,7 @@ export default function ChatScreen({ route, navigation }) {
 
   function openThread(msg) {
     if (!activeChannel) return;
-    navigation.navigate('Thread', { channelId: activeChannel.id, messageId: msg.id, primaryColor });
+    navigation.navigate('Thread', { channelId: activeChannel.id, messageId: msg.id, primaryColor, teamId });
   }
 
   function handleLongPress(msg) {
@@ -694,6 +721,15 @@ export default function ChatScreen({ route, navigation }) {
           />
         )}
 
+        {mentionQuery !== null && (
+          <MentionPicker
+            members={members}
+            query={mentionQuery}
+            onPick={handleMentionPick}
+            primaryColor={primaryColor}
+          />
+        )}
+
         {editingMsg && (
           <View style={[styles.replyPreviewBar, { borderTopColor: primaryColor }]}>
             <View style={[styles.replyPreviewAccent, { backgroundColor: primaryColor }]} />
@@ -714,7 +750,7 @@ export default function ChatScreen({ route, navigation }) {
             placeholder={inputPlaceholder}
             placeholderTextColor="#aaa"
             value={text}
-            onChangeText={setText}
+            onChangeText={handleTextChange}
             multiline
             maxLength={2000}
             returnKeyType="default"
