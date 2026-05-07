@@ -21,6 +21,6 @@ export default function BrandHeader({ teamId, pageName, primaryColor = '#c0392b'
 const styles = StyleSheet.create({
   container: {},
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12 },
-  logo: { width: 38, height: 38 },
+  logo: { width: 56, height: 56 },
   pageName: { color: '#fff', fontSize: 17, fontWeight: '700', letterSpacing: 2 },
 });
